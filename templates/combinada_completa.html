@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">Armando combinada #{{ combinada.id }}</h2>
+
+    <div class="row g-3">
+
+        <!-- ===== IZQUIERDA: la combinada que estoy armando (zona de soltar) ===== -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Mi combinada</div>
+                <div class="card-body">
+
+                    {# Estos totales se llenan SOLOS cuando agregas piernas #}
+                    <p class="mb-1">Cuota total:
+                        <strong id="cuota_total">{{ "%.2f"|format(combinada.cuota_total) if combinada.cuota_total else "—" }}</strong>
+                    </p>
+                    <p class="mb-1">Probabilidad:
+                        <strong id="prob_combinada">{{ "%.4f"|format(combinada.prob_combinada) if combinada.prob_combinada else "—" }}</strong>
+                    </p>
+                    <p>Estado:
+                        <span class="badge text-bg-warning">{{ combinada.estado.value if combinada.estado else "pendiente" }}</span>
+                    </p>
+
+                    <hr>
+
+                    {# ZONA DE SOLTAR: aqui caen las piernas que arrastras #}
+                    <div id="zona_combinada" class="border border-success border-2 rounded p-3" style="min-height:160px;">
+                        {% for p in asignadas %}
+                            <div class="card mb-2">
+                                <div class="card-body py-2">
+                                    <strong>{{ p.partido }}</strong><br>
+                                    <small class="text-secondary">{{ p.mercado }}</small><br>
+                                    <small>cuota {{ p.cuota }} · prob {{ p.prob }}</small>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        <p id="zona_vacia_msg" class="text-secondary text-center mb-0 {% if asignadas %}d-none{% endif %}">
+                            Arrastra piernas aquí
+                        </p>
+                    </div>
+
+                    <hr>
+
+                    {# El stake lo escribe el usuario; al guardar termina la combinada #}
+                    <form method="post" action="/Combinada/Completa/{{ combinada.id }}/finalizar">
+                        <label class="form-label">Stake (cuánto apuestas)</label>
+                        <input class="form-control mb-2" type="number" step="any" name="stake" value="{{ combinada.stake }}">
+                        <button type="submit" class="btn btn-success w-100">Guardar combinada</button>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== DERECHA: pool de piernas libres (para arrastrar) ===== -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Piernas disponibles — arrástralas a la izquierda</div>
+                <div class="card-body" id="pool">
+                    {% for p in libres %}
+                        <div class="card mb-2 pierna-card" draggable="true"
+                             data-pierna-id="{{ p.id }}"
+                             ondragstart="alArrastrar(event)"
+                             style="cursor: grab;">
+                            <div class="card-body py-2">
+                                <strong>{{ p.partido }}</strong><br>
+                                <small class="text-secondary">{{ p.mercado }}</small><br>
+                                <small>cuota {{ p.cuota }} · prob {{ p.prob }}</small>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="text-secondary">No hay piernas libres. Crea piernas "sin combinada" en "Hacer Pierna".</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // El id de la combinada que estoy armando (lo inserta Jinja)
+    const combinadaId = {{ combinada.id }};
+
+    // 1) Cuando EMPIEZO a arrastrar una pierna, guardo su id en el "portapapeles" del arrastre
+    function alArrastrar(event) {
+        event.dataTransfer.setData("pierna_id", event.currentTarget.dataset.piernaId);
+    }
+
+    const zona = document.getElementById("zona_combinada");
+
+    // 2) Por defecto el navegador NO deja soltar; con esto lo permitimos
+    zona.addEventListener("dragover", (e) => e.preventDefault());
+
+    // 3) Al SOLTAR: avisar al backend, mover la cartica y refrescar los totales
+    zona.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        const piernaId = e.dataTransfer.getData("pierna_id");
+        const carta = document.querySelector('.pierna-card[data-pierna-id="' + piernaId + '"]');
+        if (!carta) return;
+
+        // Llamamos al endpoint que asigna la pierna y recalcula
+        const resp = await fetch(`/api/combinada/${combinadaId}/agregar/${piernaId}`, { method: "POST" });
+        if (!resp.ok) { alert("No se pudo agregar la pierna"); return; }
+        const datos = await resp.json();
+
+        // Movemos la cartica del pool a la zona de la combinada y la dejamos quieta
+        carta.setAttribute("draggable", "false");
+        carta.classList.remove("pierna-card");
+        carta.style.cursor = "default";
+        const msg = document.getElementById("zona_vacia_msg");
+        if (msg) msg.classList.add("d-none");
+        zona.appendChild(carta);
+
+        // Actualizamos los totales con lo que devolvio el servidor
+        document.getElementById("cuota_total").textContent = datos.cuota_total.toFixed(2);
+        document.getElementById("prob_combinada").textContent = datos.prob_combinada.toFixed(4);
+    });
+</script>
+{% endblock %}

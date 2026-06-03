@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Combinadas</h2>
+
+    {# BUSCADOR por id. method="get" -> el id viaja en la URL (?id=5) #}
+    <form class="row g-2 mb-4" method="get" action="/combinadas/">
+        <div class="col-auto">
+            <input class="form-control" type="number" name="id" placeholder="Buscar por id"
+                   value="{{ busqueda if busqueda is not none else '' }}">
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-success" type="submit">Buscar</button>
+        </div>
+        {% if busqueda is not none %}
+            <div class="col-auto">
+                <a class="btn btn-outline-secondary" href="/combinadas/">Ver todas</a>
+            </div>
+        {% endif %}
+    </form>
+
+    {% if busqueda is not none %}
+        <p class="text-secondary">Resultado de la búsqueda para id = <strong>{{ busqueda }}</strong>:</p>
+    {% endif %}
+
+    {# Recorremos cada par {combinada, piernas} que mando el endpoint #}
+    {% for item in datos %}
+        <div class="row g-3 mb-3 align-items-start">
+
+            {# ----- IZQUIERDA: la combinada ----- #}
+            <div class="col-md-4">
+                {% set Combinada = item.combinada %}   {# combinada_carta.html usa la variable 'Combinada' #}
+                {% include 'combinada_carta.html' %}
+            </div>
+
+            {# ----- DERECHA: las piernas afiliadas a esa combinada ----- #}
+            <div class="col-md-8">
+                <h6 class="text-secondary mb-2">Piernas afiliadas ({{ item.piernas|length }})</h6>
+                <div class="row g-2">
+                    {% for piernas in item.piernas %}   {# pierna_carta.html usa la variable 'piernas' #}
+                        <div class="col-auto">
+                            {% include 'pierna_carta.html' %}
+                        </div>
+                    {% else %}
+                        <p class="text-secondary">Esta combinada todavía no tiene piernas.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+        <hr>
+    {% else %}
+        {% if busqueda is not none %}
+            <p class="text-danger">No se encontró ninguna combinada con id {{ busqueda }}.</p>
+        {% else %}
+            <p class="text-secondary">No hay combinadas todavía.</p>
+        {% endif %}
+    {% endfor %}
+</div>
+{% endblock %}

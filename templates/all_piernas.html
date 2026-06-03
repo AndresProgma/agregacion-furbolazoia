@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Piernas</h2>
+
+    {# BUSCADOR por id. method="get" -> el id viaja en la URL (?id=5) #}
+    <form class="row g-2 mb-4" method="get" action="/piernas/">
+        <div class="col-auto">
+            <input class="form-control" type="number" name="id" placeholder="Buscar por id"
+                   value="{{ busqueda if busqueda is not none else '' }}">
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-success" type="submit">Buscar</button>
+        </div>
+        {% if busqueda is not none %}
+            <div class="col-auto">
+                <a class="btn btn-outline-secondary" href="/piernas/">Ver todas</a>
+            </div>
+        {% endif %}
+    </form>
+
+    {% if busqueda is not none %}
+        <p class="text-secondary">Resultado de la búsqueda para id = <strong>{{ busqueda }}</strong>:</p>
+    {% endif %}
+
+    {# Mostramos las piernas en carticas, una al lado de otra #}
+    <div class="row g-2">
+        {% for piernas in piernas_lista %}
+            <div class="col-auto">
+                {% include 'pierna_carta.html' %}
+            </div>
+        {% else %}
+            {% if busqueda is not none %}
+                <p class="text-danger">No se encontró ninguna pierna con id {{ busqueda }}.</p>
+            {% else %}
+                <p class="text-secondary">No hay piernas todavía.</p>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{#
+  navbar.html  ->  La BARRA DE NAVEGACION (menu superior).
+  Es el codigo de ejemplo que trae Bootstrap. Sirve para moverse entre paginas.
+  IMPORTANTE: cada enlace navega segun su atributo  href="...".
+    - href="/algo"  -> va a ese endpoint real de tu app.
+    - href="#"      -> placeholder, NO va a ningun lado (falta completarlo).
+#}
+
+{# <nav> = contenedor del menu. Las clases "navbar..." son estilos de Bootstrap. #}
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+  <div class="container-fluid">  {# Caja que centra y da margenes al contenido del navbar #}
+
+    {# LA MARCA (logo/nombre del sitio). Al hacer click lleva al home "/" #}
+    <a class="navbar-brand" href="/">COMBINADAS</a>
+
+    {#
+      Boton "hamburguesa": SOLO se ve en pantallas pequeñas (movil).
+      Al pulsarlo, despliega/colapsa el menu de abajo (el div #navbarSupportedContent).
+    #}
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>  {# El icono de las 3 rayitas #}
+    </button>
+
+    {# Este div es el menu que se colapsa/expande con el boton de arriba #}
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+
+      {# <ul> = la LISTA de enlaces del menu. Cada <li> es un item. #}
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+        {# Enlace ACTIVO -> va al endpoint real de capturar pokemon (/pokemons/create/) #}
+        <li class="nav-item">
+          <a class="nav-link" href="/Combinada/Crear/">Hacer Combinada</a>
+        </li>
+
+        {# Enlace ACTIVO -> formulario para crear una pierna dentro de una combinada #}
+        <li class="nav-item">
+          <a class="nav-link" href="/Pierna/Crear/">Hacer Pierna</a>
+        </li>
+
+        {# Enlace ACTIVO -> armar una combinada completa arrastrando piernas #}
+        <li class="nav-item">
+          <a class="nav-link" href="/Combinada/Completa/">Combinada completa</a>
+        </li>
+
+        {# Enlace ACTIVO -> lista todos los pokemon (/pokemons) 
+        <li class="nav-item">
+          <a class="nav-link" href="/combinadas">Ver todos</a>
+        </li>#}
+
+        {# MENU DESPLEGABLE (dropdown): al hacer click muestra mas opciones #}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Visualizacion
+          </a>
+          {# Las opciones que aparecen al desplegar. Todas son de ejemplo (href="#"). #}
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/combinadas">Ver Combinadas</a>
+            <li><a class="dropdown-item" href="/piernas">Ver Piernas</a>
+          </ul>
+        </li>
+
+        {# Enlace DESACTIVADO: no se puede pulsar (no tiene href y tiene clase "disabled") #}
+        
+      </ul>
+
+      {#
+        FORMULARIO de busqueda (de ejemplo). No tiene action ni method,
+        asi que de momento no busca nada. Habria que conectarlo a un endpoint.
+      #}
+      
+    </div>
+  </div>
+</nav>

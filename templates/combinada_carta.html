@@ -1,0 +1,18 @@
+<div class="card border-success w-100">
+  <div class="card-body">
+    <h5 class="card-title">Combinada #{{ Combinada.id }}</h5>
+    <p class="card-text mb-1">stake: {{ Combinada.stake }}</p>
+    <p class="card-text mb-1">cuota total: {{ "%.2f"|format(Combinada.cuota_total) if Combinada.cuota_total else "—" }}</p>
+    <p class="card-text mb-1">prob. combinada: {{ "%.4f"|format(Combinada.prob_combinada) if Combinada.prob_combinada else "—" }}</p>
+    <p class="card-text mb-1">estado:
+      <span class="badge text-bg-warning">{{ Combinada.estado.value if Combinada.estado else "—" }}</span>
+    </p>
+    <p class="card-text mb-2">activa: {{ "sí" if Combinada.activo else "no" }}</p>
+
+    {# Eliminar la combinada COMPLETA (ella + sus piernas). confirm() pide confirmacion #}
+    <form method="post" action="/Combinada/{{ Combinada.id }}/eliminar"
+          onsubmit="return confirm('¿Eliminar esta combinada y todas sus piernas?');">
+        <button type="submit" class="btn btn-danger btn-sm w-100">Eliminar combinada</button>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4" style="max-width: 500px;">
+    <h2 class="mb-4">Crear pierna</h2>
+
+    <form method="post" action="/Pierna/Crear/">
+
+        {# El <select> con las combinadas que existen. value = el id que viaja al servidor #}
+        <div class="mb-3">
+            <label class="form-label">Combinada (a cuál pertenece)</label>
+            <select class="form-select" name="combinada_id">
+                {# value vacio = pierna libre, va al pool de "Combinada completa" #}
+                <option value="">— Sin combinada (libre, para arrastrar) —</option>
+                {% for c in combinadas_lista %}
+                    <option value="{{ c.id }}">Combinada #{{ c.id }} (stake {{ c.stake }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Partido</label>
+            <input class="form-control" name="partido" placeholder="Brasil vs Camerún">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Mercado</label>
+            <input class="form-control" name="mercado" placeholder="1X2 Brasil">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Cuota</label>
+            <input class="form-control" name="cuota" placeholder="1.85">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Probabilidad (0–1)</label>
+            <input class="form-control" name="prob" placeholder="0.62">
+        </div>
+
+        <button type="submit" class="btn btn-success">Crear pierna</button>
+    </form>
+</div>
+{% endblock %}

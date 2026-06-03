@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4" style="max-width: 500px;">
+    <h2 class="mb-4">Crear combinada</h2>
+
+    <form method="post" action="/Combinada/Crear/">
+
+        {# mb-3 = espacio abajo de cada campo; form-label = estilo etiqueta; form-control = estilo input #}
+        <div class="mb-3">
+            <label class="form-label">stake</label>
+            <input class="form-control" name="stake" id="stake">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">cuota total</label>
+            <input class="form-control" name="cuota_total" id="cuota_total">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">probabilidad de la combinada</label>
+            <input class="form-control" name="prob_combinada" id="prob_combinada">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">estado</label>
+            <input class="form-control" name="estado" id="estado">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">activo</label>
+            <input class="form-control" name="activo" id="activo">
+        </div>
+
+        <button type="submit" class="btn btn-success">Crear</button>
+    </form>
+</div>
+
+{% endblock %}

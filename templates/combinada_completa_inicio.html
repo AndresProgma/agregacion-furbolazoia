@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5 text-center">
+    <h2 class="mb-3">Combinada completa</h2>
+    <p class="text-secondary mb-4">
+        Crea una combinada vacía y luego arrastra piernas para armarla.<br>
+        La cuota total y la probabilidad se calculan solas.
+    </p>
+
+    {# Este boton crea la combinada vacia por detras (POST) y te lleva al armador #}
+    <form method="post" action="/Combinada/Completa/">
+        <button type="submit" class="btn btn-success btn-lg">+ Crear combinada</button>
+    </form>
+</div>
+{% endblock %}
