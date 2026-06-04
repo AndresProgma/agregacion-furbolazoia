@@ -1,78 +1,107 @@
 {% extends 'base.html' %}
 {% block content %}
 {#
-  combinada_dia.html  ->  "Combinada del día"
-  - Arriba (lado a lado): la GRAFICA de RIESGO vs RECOMPENSA  y  una TABLA.
-        * La grafica arranca VACIA.
-        * La tabla muestra, para la combinada que sueltes, como BAJA la probabilidad
-          combinada al ir multiplicando la prob de cada pierna (1 pierna, 2, 3...).
-  - Abajo: todas las combinadas (combinada_carta.html), cada una ARRASTRABLE.
-  - Al soltar una carta sobre la grafica aparece un punto:
-        eje X = probabilidad de ganar (%)   ->  qué tan probable es que salga
-        eje Y = cuota total (lo que paga)    ->  cuánto recompensa
+  combinada_dia.html  ->  "Combinada del día" (EDITOR en tiempo real)
+  - Arrastra una combinada (abajo) a la ZONA DE EDICIÓN.
+  - GRÁFICA (idea #1, doble eje): cómo CAE la probabilidad combinada (∏ prob)
+    y cómo SUBE el pago (∏ cuota) a medida que se acumulan piernas.
+  - Tabla de piernas de la combinada (se pueden QUITAR) + POOL de piernas
+    libres (se pueden AGREGAR). Todo recalcula la gráfica y los números EN VIVO.
+  - Guardar: persiste los cambios. Descartar: vuelve a como estaba.
 #}
 
-{# Chart.js: la libreria que dibuja la grafica (se baja del CDN) #}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <div class="container mt-4">
     <h2 class="mb-1">Combinada del día</h2>
     <p class="text-secondary mb-3">
-        Arrastra una combinada de abajo hacia la gráfica para ver su
-        <strong>riesgo (probabilidad)</strong> contra su <strong>recompensa (cuota)</strong>.
-        La tabla de la derecha muestra cómo baja la probabilidad al sumar piernas.
+        Arrastra una combinada de abajo a la zona de edición. Agrega o quita piernas
+        y mira en vivo cómo <strong>baja la probabilidad real</strong> y <strong>sube el pago</strong>.
     </p>
 
     <div class="row g-3">
-        {# ===== IZQUIERDA: LA GRAFICA (zona de soltar). Arranca vacia ===== #}
-        <div class="col-lg-8">
+        {# ===== IZQUIERDA: GRÁFICA idea #1 (zona de soltar la combinada) ===== #}
+        <div class="col-lg-7">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Riesgo vs Recompensa</span>
-                    <button id="btn_limpiar" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+                    <span id="titulo_grafica">Probabilidad vs Pago</span>
+                    <span id="badge_edit" class="badge text-bg-secondary">sin combinada</span>
                 </div>
-                {# este DIV es la ZONA DE SOLTAR: borde punteado para que se note #}
                 <div id="zona_grafica" class="card-body border border-success border-2 rounded m-2"
-                     style="min-height:380px;">
-                    <canvas id="grafica_riesgo" height="130"></canvas>
+                     style="min-height:340px;">
+                    <canvas id="grafica_combo" height="150"></canvas>
                     <p id="grafica_vacia_msg" class="text-secondary text-center mt-3 mb-0">
-                        La gráfica está vacía. Arrastra combinadas aquí 👇
+                        Arrastra una combinada aquí 👇
                     </p>
+                </div>
+                {# Números clave #}
+                <div class="card-footer">
+                    <div class="row text-center g-2">
+                        <div class="col-4">
+                            <div class="small text-secondary">Prob. combinada</div>
+                            <div id="num_prob" class="fs-5 fw-bold">—</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-secondary">Cuota total</div>
+                            <div id="num_cuota" class="fs-5 fw-bold">—</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-secondary">EV (valor)</div>
+                            <div id="num_ev" class="fs-5 fw-bold">—</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {# ===== DERECHA: LA TABLA (se llena con la combinada que sueltes) ===== #}
-        <div class="col-lg-4">
-            <div class="card h-100">
-                <div class="card-header">Desglose por piernas</div>
+        {# ===== DERECHA: TABLA EDITABLE + POOL para agregar ===== #}
+        <div class="col-lg-5">
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Piernas de la combinada</span>
+                    <div class="btn-group btn-group-sm">
+                        <button id="btn_guardar" class="btn btn-success" disabled>Guardar</button>
+                        <button id="btn_descartar" class="btn btn-outline-secondary" disabled>Descartar</button>
+                    </div>
+                </div>
                 <div class="card-body" id="tabla_combinada">
-                    <p class="text-secondary mb-0">Arrastra una combinada a la gráfica para ver el desglose.</p>
+                    <p class="text-secondary mb-0">Arrastra una combinada a la gráfica para editarla.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Piernas libres para agregar</div>
+                <div class="card-body" id="pool_piernas" style="max-height:260px; overflow:auto;">
+                    <p class="text-secondary mb-0">—</p>
                 </div>
             </div>
         </div>
     </div>
 
-    {# leyenda de colores (semaforo de riesgo) #}
+    {# leyenda de colores (semáforo de riesgo) #}
     <p class="small text-secondary mt-2 mb-4">
         <span style="color:#22c55e;">●</span> Segura (prob ≥ 60%) &nbsp;
         <span style="color:#eab308;">●</span> Media (30–60%) &nbsp;
         <span style="color:#ef4444;">●</span> Arriesgada (&lt; 30%)
     </p>
 
+    {# Form oculto para Guardar (se rellena por JS) #}
+    <form id="form_guardar" method="post" action="" class="d-none">
+        <input type="hidden" name="pierna_ids" id="input_pierna_ids" value="">
+    </form>
+
     <hr>
     <h5 class="mb-3">Combinadas (arrástralas a la gráfica)</h5>
 
-    {# ===== LAS CARTAS, cada una envuelta en un div ARRASTRABLE ===== #}
     <div class="row g-3">
         {% for item in datos %}
-            {% set Combinada = item.combinada %}   {# combinada_carta.html usa la variable 'Combinada' #}
+            {% set Combinada = item.combinada %}
             <div class="col-md-4 combinada-drag" draggable="true"
                  data-id="{{ Combinada.id }}"
-                 data-prob="{{ Combinada.prob_combinada if Combinada.prob_combinada is not none else '' }}"
-                 data-cuota="{{ Combinada.cuota_total if Combinada.cuota_total is not none else '' }}"
+                 data-stake="{{ Combinada.stake }}"
                  data-piernas='{{ item.piernas_info | tojson }}'
                  ondragstart="alArrastrarCombinada(event)"
+                 onclick="cargarDesdeCarta(this, event)"
                  style="cursor:grab;">
                 {% include 'combinada_carta.html' %}
             </div>
@@ -83,148 +112,224 @@
 </div>
 
 <script>
-    // ---- 1) ARRASTRAR una combinada: guardamos sus datos en el "portapapeles" del arrastre ----
-    function alArrastrarCombinada(event) {
-        const el = event.currentTarget;
-        // metemos todo en un solo texto (JSON) porque es lo mas compatible entre navegadores
-        const datos = JSON.stringify({
-            id: el.dataset.id,
-            prob: el.dataset.prob,        // 0–1, o "" si la combinada no tiene probabilidad
-            cuota: el.dataset.cuota,      // >=1, o "" si no tiene cuota
-            piernas: el.dataset.piernas   // JSON con [{partido, prob}, ...]
-        });
-        event.dataTransfer.setData("text/plain", datos);
-    }
+    // ====== DATOS DEL SERVIDOR ======
+    const SERVER_POOL = {{ piernas_pool | tojson }};   // piernas libres (id, partido, mercado, prob, cuota)
 
-    // segun la probabilidad elegimos color (semaforo de riesgo)
-    function colorPorRiesgo(prob01) {
-        if (prob01 >= 0.6) return "#22c55e";   // verde = segura
-        if (prob01 >= 0.3) return "#eab308";   // amarillo = media
-        return "#ef4444";                      // rojo = arriesgada
-    }
+    // ====== ESTADO DEL EDITOR (en el navegador) ======
+    let editId = null;        // combinada que se está editando
+    let stake  = 1;           // stake de esa combinada (para el EV)
+    let legs   = [];          // piernas actuales de la combinada
+    let pool   = [];          // piernas libres disponibles para agregar
+    let legsOriginal = [];    // copia al cargar (para "Descartar")
 
-    // ---- 2) Creamos la grafica VACIA (un scatter: puntos sueltos) ----
-    const chart = new Chart(document.getElementById("grafica_riesgo"), {
-        type: "scatter",
+    const clone = (a) => JSON.parse(JSON.stringify(a));
+    const colorRiesgo = (p) => p >= 0.6 ? "#22c55e" : (p >= 0.3 ? "#eab308" : "#ef4444");
+
+    // ====== GRÁFICA idea #1: doble eje (prob cae / pago sube) ======
+    const chart = new Chart(document.getElementById("grafica_combo"), {
+        type: "line",
         data: {
-            datasets: [{
-                label: "Combinadas",
-                data: [],                 // arranca sin puntos
-                backgroundColor: [],      // un color por punto (semaforo de riesgo)
-                pointRadius: 9,
-                pointHoverRadius: 12
-            }]
+            labels: [],
+            datasets: [
+                {
+                    label: "Probabilidad combinada (%)",
+                    yAxisID: "yProb",
+                    data: [], borderColor: "#22c55e",
+                    backgroundColor: "rgba(34,197,94,.15)",
+                    tension: .25, fill: true, pointRadius: 4, pointHoverRadius: 6
+                },
+                {
+                    label: "Pago acumulado (× cuota)",
+                    yAxisID: "yCuota",
+                    data: [], borderColor: "#eab308",
+                    backgroundColor: "rgba(234,179,8,.1)",
+                    tension: .25, fill: false, pointRadius: 4, pointHoverRadius: 6
+                }
+            ]
         },
         options: {
+            responsive: true,
+            interaction: { mode: "index", intersect: false },
             scales: {
-                x: { title: { display: true, text: "Probabilidad de ganar (%)" }, min: 0, max: 100 },
-                y: { title: { display: true, text: "Cuota total (lo que paga)" }, beginAtZero: false }
+                yProb:  { type: "linear", position: "left",  min: 0, max: 100,
+                          title: { display: true, text: "Probabilidad real (%)" } },
+                yCuota: { type: "linear", position: "right", beginAtZero: false,
+                          title: { display: true, text: "Pago (× cuota)" },
+                          grid: { drawOnChartArea: false } },
+                x: { title: { display: true, text: "Piernas acumuladas" } }
             },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        // texto que sale al pasar el mouse sobre un punto
-                        label: (c) => `${c.raw.label} · prob ${c.raw.x.toFixed(1)}% · cuota ${c.raw.y.toFixed(2)}`
-                    }
-                }
-            }
+            plugins: { legend: { position: "bottom" } }
         }
     });
 
-    // ---- 3) LA TABLA: arma el desglose pierna por pierna de una combinada ----
-    // piernas = [{partido, prob}, ...].  Multiplica las probs una a una y muestra
-    // como cae la probabilidad combinada (igual que el ejemplo del 0.89).
-    function renderTabla(id, piernas, probTotal) {
-        const cont = document.getElementById("tabla_combinada");
+    // Productos acumulados pierna a pierna (para la gráfica y la tabla)
+    function acumulados(arr) {
+        let prob = 1, cuota = 1;
+        const labels = [], pdata = [], cdata = [], probAcum = [];
+        arr.forEach((l, i) => {
+            prob  *= l.prob;
+            cuota *= l.cuota;
+            labels.push(`${i + 1}. ${l.mercado}`);
+            pdata.push(+(prob * 100).toFixed(2));
+            cdata.push(+cuota.toFixed(2));
+            probAcum.push(prob);
+        });
+        return { labels, pdata, cdata, probAcum, probFinal: prob, cuotaFinal: cuota };
+    }
 
-        // combinada SIN piernas (prob puesta a mano): mostramos solo el total
-        if (!piernas || piernas.length === 0) {
-            const pct = probTotal === "" ? "—" : (parseFloat(probTotal) * 100).toFixed(1) + "%";
-            cont.innerHTML = `<h6 class="mb-2">Combinada #${id}</h6>
-                <p class="text-secondary mb-0">No tiene piernas. Prob. combinada: <strong>${pct}</strong></p>`;
-            return;
+    // ====== PINTAR TODO (se llama en cada cambio) ======
+    function recompute() {
+        const ac = acumulados(legs);
+
+        // --- gráfica ---
+        chart.data.labels = ac.labels;
+        chart.data.datasets[0].data = ac.pdata;
+        chart.data.datasets[1].data = ac.cdata;
+        chart.update();
+        document.getElementById("grafica_vacia_msg").classList.toggle("d-none", legs.length > 0);
+
+        // --- números ---
+        if (legs.length === 0) {
+            document.getElementById("num_prob").textContent = "—";
+            document.getElementById("num_cuota").textContent = "—";
+            document.getElementById("num_ev").textContent = "—";
+        } else {
+            const pago = stake * ac.cuotaFinal;
+            const ev   = pago * ac.probFinal - stake;        // EV = prob·pago − stake
+            document.getElementById("num_prob").textContent  = (ac.probFinal * 100).toFixed(1) + "%";
+            document.getElementById("num_cuota").textContent = ac.cuotaFinal.toFixed(2);
+            const evEl = document.getElementById("num_ev");
+            evEl.textContent = (ev >= 0 ? "+" : "") + ev.toFixed(2) + " u";
+            evEl.style.color = ev >= 0 ? "#22c55e" : "#ef4444";
         }
 
-        let prod = 1;
-        const factores = [];
+        renderTabla(ac.probAcum);
+        renderPool();
+    }
+
+    // ====== TABLA de piernas de la combinada (con botón Quitar) ======
+    function renderTabla(probAcum) {
+        const cont = document.getElementById("tabla_combinada");
+        if (editId === null) {
+            cont.innerHTML = '<p class="text-secondary mb-0">Arrastra una combinada a la gráfica para editarla.</p>';
+            return;
+        }
+        if (legs.length === 0) {
+            cont.innerHTML = `<h6 class="mb-2">Combinada #${editId}</h6>
+                <p class="text-secondary mb-0">Sin piernas. Agrega desde el pool de abajo 👇</p>`;
+            return;
+        }
         let filas = "";
-        let yaAviso = false;
-        piernas.forEach((p, i) => {
-            prod *= p.prob;                       // acumulamos el producto
-            factores.push(p.prob.toFixed(2));     // "0.90", "0.85", ...
-            const pct = (prod * 100).toFixed(1);
-            const color = colorPorRiesgo(prod);
-
-            // aviso la primera vez que baja del 50% ("moneda al aire")
-            let nota = "";
-            if (!yaAviso && prod < 0.5) { nota = ' <span class="text-danger small">← menos que una moneda al aire</span>'; yaAviso = true; }
-
+        legs.forEach((l, i) => {
+            const pa = probAcum[i];
             filas += `<tr>
                 <td>${i + 1}</td>
-                <td class="small text-secondary">${factores.join(" × ")}</td>
-                <td style="color:${color}; font-weight:600;">${pct}%${nota}</td>
+                <td><div class="small">${l.partido}</div><div class="small text-success">${l.mercado}</div></td>
+                <td class="text-nowrap">${l.cuota.toFixed(2)}</td>
+                <td style="color:${colorRiesgo(pa)}; font-weight:600;">${(pa * 100).toFixed(1)}%</td>
+                <td><button class="btn btn-outline-danger btn-sm py-0" onclick="quitarPierna(${l.id})">✕</button></td>
             </tr>`;
         });
-
         cont.innerHTML = `
-            <h6 class="mb-2">Combinada #${id}</h6>
+            <h6 class="mb-2">Combinada #${editId}</h6>
             <table class="table table-sm table-dark table-bordered mb-0 align-middle">
-                <thead><tr><th>Nº piernas</th><th>Cálculo</th><th>Prob. combinada</th></tr></thead>
+                <thead><tr><th>#</th><th>Pierna</th><th>Cuota</th><th>Prob. acum.</th><th></th></tr></thead>
                 <tbody>${filas}</tbody>
             </table>`;
     }
 
-    // para no agregar dos veces la misma combinada (el punto)
-    const yaAgregadas = new Set();
+    // ====== POOL de piernas libres (con botón Agregar) ======
+    function renderPool() {
+        const cont = document.getElementById("pool_piernas");
+        if (editId === null) { cont.innerHTML = '<p class="text-secondary mb-0">—</p>'; return; }
+        if (pool.length === 0) { cont.innerHTML = '<p class="text-secondary mb-0">No hay piernas libres para agregar.</p>'; return; }
+        let html = "";
+        pool.forEach((p) => {
+            html += `<div class="d-flex justify-content-between align-items-center border-bottom py-1">
+                <div>
+                    <div class="small">${p.partido}</div>
+                    <div class="small text-success">${p.mercado} · cuota ${p.cuota.toFixed(2)} · prob ${(p.prob * 100).toFixed(0)}%</div>
+                </div>
+                <button class="btn btn-outline-success btn-sm py-0" onclick="agregarPierna(${p.id})">+ Agregar</button>
+            </div>`;
+        });
+        cont.innerHTML = html;
+    }
 
-    // ---- 4) SOLTAR sobre la grafica: agregamos el punto y armamos la tabla ----
+    // ====== ACCIONES agregar / quitar ======
+    function agregarPierna(id) {
+        const i = pool.findIndex(p => p.id === id);
+        if (i < 0) return;
+        legs.push(pool[i]);
+        pool.splice(i, 1);
+        recompute();
+    }
+    function quitarPierna(id) {
+        const i = legs.findIndex(l => l.id === id);
+        if (i < 0) return;
+        pool.push(legs[i]);   // vuelve al pool de libres
+        legs.splice(i, 1);
+        recompute();
+    }
+
+    // ====== CARGAR una combinada en el editor ======
+    function cargarCombinada(id, stakeVal, piernas) {
+        editId = id;
+        stake  = parseFloat(stakeVal) || 1;
+        legs   = clone(piernas || []);
+        legsOriginal = clone(legs);
+        // el pool arranca con las libres del servidor (menos las que ya estén en legs)
+        const enLegs = new Set(legs.map(l => l.id));
+        pool = clone(SERVER_POOL).filter(p => !enLegs.has(p.id));
+
+        document.getElementById("badge_edit").className = "badge text-bg-success";
+        document.getElementById("badge_edit").textContent = "editando #" + id;
+        document.getElementById("titulo_grafica").textContent = "Combinada #" + id + " · Probabilidad vs Pago";
+        document.getElementById("btn_guardar").disabled = false;
+        document.getElementById("btn_descartar").disabled = false;
+        document.getElementById("form_guardar").action = "/Combinada/Dia/" + id + "/guardar";
+        recompute();
+    }
+
+    // ====== DRAG & DROP de la combinada ======
+    function alArrastrarCombinada(event) {
+        const el = event.currentTarget;
+        event.dataTransfer.setData("text/plain", JSON.stringify({
+            id: el.dataset.id, stake: el.dataset.stake, piernas: el.dataset.piernas
+        }));
+    }
+    function cargarDesdeCarta(el, event) {
+        // si el clic fue en un botón/link/form de la carta (Editar, Eliminar, subir imagen),
+        // no cargamos: dejamos que ese control haga lo suyo.
+        if (event && event.target.closest('a, button, input, label, form')) return;
+        let piernas = [];
+        try { piernas = JSON.parse(el.dataset.piernas); } catch (_) {}
+        cargarCombinada(el.dataset.id, el.dataset.stake, piernas);
+    }
+
     const zona = document.getElementById("zona_grafica");
-    zona.addEventListener("dragover", (e) => e.preventDefault());  // permitir soltar
+    zona.addEventListener("dragover", (e) => e.preventDefault());
     zona.addEventListener("drop", (e) => {
         e.preventDefault();
         let datos;
-        try { datos = JSON.parse(e.dataTransfer.getData("text/plain")); }
-        catch (_) { return; }   // soltaron algo que no es una combinada
-
-        // las piernas vienen como texto JSON: las convertimos a lista
+        try { datos = JSON.parse(e.dataTransfer.getData("text/plain")); } catch (_) { return; }
         let piernas = [];
-        try { piernas = JSON.parse(datos.piernas); } catch (_) { piernas = []; }
-
-        // la tabla SIEMPRE se actualiza con la ultima combinada soltada
-        renderTabla(datos.id, piernas, datos.prob);
-
-        // para el PUNTO de la grafica si necesitamos prob Y cuota
-        if (datos.prob === "" || datos.cuota === "") {
-            alert("La combinada #" + datos.id + " no tiene probabilidad o cuota todavía, así que no se puede ubicar en la gráfica (sí ves su tabla a la derecha).");
-            return;
-        }
-        if (yaAgregadas.has(datos.id)) return;   // ya estaba en la grafica
-        yaAgregadas.add(datos.id);
-
-        const prob = parseFloat(datos.prob);     // 0–1
-        const cuota = parseFloat(datos.cuota);   // >=1
-
-        // agregamos el punto: X = prob en %, Y = cuota
-        chart.data.datasets[0].data.push({ x: prob * 100, y: cuota, label: "Combinada #" + datos.id });
-        chart.data.datasets[0].backgroundColor.push(colorPorRiesgo(prob));
-        chart.update();
-
-        document.getElementById("grafica_vacia_msg").classList.add("d-none");
+        try { piernas = JSON.parse(datos.piernas); } catch (_) {}
+        cargarCombinada(datos.id, datos.stake, piernas);
     });
 
-    // ---- 5) Boton "Limpiar": vacia la grafica y la tabla ----
-    document.getElementById("btn_limpiar").addEventListener("click", () => {
-        chart.data.datasets[0].data = [];
-        chart.data.datasets[0].backgroundColor = [];
-        chart.update();
-        yaAgregadas.clear();
-        document.getElementById("grafica_vacia_msg").classList.remove("d-none");
-        document.getElementById("tabla_combinada").innerHTML =
-            '<p class="text-secondary mb-0">Arrastra una combinada a la gráfica para ver el desglose.</p>';
+    // ====== GUARDAR / DESCARTAR ======
+    document.getElementById("btn_guardar").addEventListener("click", () => {
+        if (editId === null) return;
+        document.getElementById("input_pierna_ids").value = legs.map(l => l.id).join(",");
+        document.getElementById("form_guardar").submit();   // POST -> recarga la página
+    });
+    document.getElementById("btn_descartar").addEventListener("click", () => {
+        if (editId === null) return;
+        cargarCombinada(editId, stake, legsOriginal);   // vuelve a como estaba al cargar
     });
 
-    // ---- soltar IMAGENES en las cartas sigue funcionando (lo usa combinada_carta.html) ----
+    // ====== soltar IMÁGENES en las cartas (lo usa combinada_carta.html) ======
     function soltarImagen(e, id) {
         e.preventDefault();
         const input = document.getElementById('file-' + id);
