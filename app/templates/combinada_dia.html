@@ -37,17 +37,13 @@
                 {# Números clave #}
                 <div class="card-footer">
                     <div class="row text-center g-2">
-                        <div class="col-4">
+                        <div class="col-6">
                             <div class="small text-secondary">Prob. combinada</div>
                             <div id="num_prob" class="fs-5 fw-bold">—</div>
                         </div>
-                        <div class="col-4">
+                        <div class="col-6">
                             <div class="small text-secondary">Cuota total</div>
                             <div id="num_cuota" class="fs-5 fw-bold">—</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="small text-secondary">EV (valor)</div>
-                            <div id="num_ev" class="fs-5 fw-bold">—</div>
                         </div>
                     </div>
                 </div>
@@ -192,15 +188,9 @@
         if (legs.length === 0) {
             document.getElementById("num_prob").textContent = "—";
             document.getElementById("num_cuota").textContent = "—";
-            document.getElementById("num_ev").textContent = "—";
         } else {
-            const pago = stake * ac.cuotaFinal;
-            const ev   = pago * ac.probFinal - stake;        // EV = prob·pago − stake
             document.getElementById("num_prob").textContent  = (ac.probFinal * 100).toFixed(1) + "%";
             document.getElementById("num_cuota").textContent = ac.cuotaFinal.toFixed(2);
-            const evEl = document.getElementById("num_ev");
-            evEl.textContent = (ev >= 0 ? "+" : "") + ev.toFixed(2) + " u";
-            evEl.style.color = ev >= 0 ? "#22c55e" : "#ef4444";
         }
 
         renderTabla(ac.probAcum);
