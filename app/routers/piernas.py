@@ -7,6 +7,7 @@ from app.core.database import get_session
 from app.core.templates import templates
 from app.models import *
 from app.services.crud import *
+from app.services.futbolaza_api import recomendadas   # apuestas recomendadas de futbolaza (servicio aparte)
 
 router = APIRouter()
 
@@ -38,7 +39,10 @@ async def mostrar_todas_piernas(request: Request, id: Optional[int] = None, sess
 async def crear_pierna_vista(request: Request, session: Session = Depends(get_session)):
     # Pasamos las combinadas para llenar el <select> del formulario
     combinadas = Mostrar_Combinadas_bd(session)
-    return templates.TemplateResponse(request, "crear_pierna.html", {"combinadas_lista": combinadas})
+    # Apuestas recomendadas de futbolaza: autocompletan partido + mercado + prob
+    recos = recomendadas()
+    return templates.TemplateResponse(request, "crear_pierna.html",
+        {"combinadas_lista": combinadas, "recomendadas": recos})
 
 
 @router.post("/Pierna/Crear/", response_class=HTMLResponse)

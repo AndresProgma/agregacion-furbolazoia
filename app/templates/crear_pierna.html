@@ -10,6 +10,31 @@
 
     <form method="post" action="/Pierna/Crear/">
 
+        {# === Apuestas recomendadas de futbolaza (servicio aparte) ===
+           Al elegir una, autocompleta Partido + Mercado + Probabilidad de abajo.
+           La cuota la pones tú a mano (esa no la da el modelo). #}
+        <div class="mb-3">
+            <label class="form-label">Recomendada de futbolaza (autocompleta)</label>
+            {% if recomendadas %}
+                <select class="form-select" id="reco-futbolaza">
+                    <option value="">— Elegir manualmente —</option>
+                    {% for r in recomendadas %}
+                        <option value="{{ loop.index0 }}"
+                                data-partido="{{ r.partido }}"
+                                data-mercado="{{ r.mercado }}"
+                                data-prob="{{ r.prob }}">
+                            {{ r.partido }} · {{ r.mercado }} ({{ (r.prob * 100) | round | int }}%)
+                        </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Datos del modelo de futbolaza. Revisa y ajusta antes de guardar.</div>
+            {% else %}
+                <div class="alert alert-secondary py-2 mb-0">
+                    No hay recomendadas disponibles ahora (futbolaza sin partidos de hoy o dormido). Llena los campos a mano.
+                </div>
+            {% endif %}
+        </div>
+
         {# El <select> con las combinadas que existen. value = el id que viaja al servidor #}
         <div class="mb-3">
             <label class="form-label">Combinada (a cuál pertenece)</label>
@@ -64,4 +89,19 @@
         <button type="submit" class="btn btn-success">Crear pierna</button>
     </form>
 </div>
+
+{# Al elegir una recomendada de futbolaza, copia sus datos a los campos de la pierna #}
+<script>
+  (function () {
+    const reco = document.getElementById('reco-futbolaza');
+    if (!reco) return;
+    reco.addEventListener('change', function () {
+      const opt = this.options[this.selectedIndex];
+      if (!opt || !opt.value) return;   // "Elegir manualmente"
+      document.querySelector('input[name="partido"]').value = opt.dataset.partido || '';
+      document.querySelector('input[name="mercado"]').value = opt.dataset.mercado || '';
+      document.querySelector('input[name="prob"]').value    = opt.dataset.prob || '';
+    });
+  })();
+</script>
 {% endblock %}
