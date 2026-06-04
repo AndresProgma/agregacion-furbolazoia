@@ -57,4 +57,14 @@
         {% endif %}
     {% endfor %}
 </div>
+
+{# JS para arrastrar y soltar imagenes en las cartas de combinada #}
+<script>
+function soltarImagen(e, id) {
+    e.preventDefault();
+    const input = document.getElementById('file-' + id);
+    input.files = e.dataTransfer.files;                 // metemos el archivo soltado en el input
+    document.getElementById('form-img-' + id).submit(); // y enviamos el formulario
+}
+</script>
 {% endblock %}

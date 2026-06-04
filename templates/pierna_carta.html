@@ -1,13 +1,22 @@
 <div class="card" style="width: 15rem;">
   <div class="card-body py-2">
     <h6 class="card-title mb-1">{{ piernas.partido }}</h6>
-    <p class="card-text mb-1"><small class="text-secondary">{{ piernas.mercado }}</small></p>
+    <p class="card-text mb-1"><small class="text-success">{{ piernas.mercado }}</small></p>
+    <p class="card-text mb-1">id: {{ piernas.id }} </p>
     <p class="card-text mb-1">cuota: {{ piernas.cuota }} · prob: {{ piernas.prob }}</p>
     <p class="card-text mb-2">resultado:
       <span class="badge text-bg-secondary">{{ piernas.resultado.value if piernas.resultado else "pendiente" }}</span>
     </p>
+    {% if piernas.combinada_id %}
+      <p class="card-text mb-1">afiliada a: combinada #{{ piernas.combinada_id }}</p>
+    {% else %}
+      <p class="card-text mb-1"><span class="badge text-bg-info">libre</span></p>
+    {% endif %}
 
-    {# Boton ELIMINAR: form POST. El confirm() pide confirmacion antes de borrar #}
+    {# EDITAR: link (GET) que lleva al formulario de edicion ya lleno #}
+    <a href="/Pierna/{{ piernas.id }}/editar" class="btn btn-warning btn-sm w-100 mb-1">Editar</a>
+
+    {# Boton ELIMINAR: form POST. El confirm() pide confirmacion antes de borrar , obviamente pasa id desde aca#}
     <form method="post" action="/Pierna/{{ piernas.id }}/eliminar"
           onsubmit="return confirm('¿Eliminar esta pierna?');">
         <button type="submit" class="btn btn-danger btn-sm w-100">Eliminar</button>

@@ -9,6 +9,31 @@
     </p>
     <p class="card-text mb-2">activa: {{ "sí" if Combinada.activo else "no" }}</p>
 
+    {# MULTIMEDIA: si ya tiene imagen IA la mostramos #}
+    {% if Combinada.imagen_url %}
+        <img src="{{ Combinada.imagen_url }}" class="img-fluid rounded mb-2"
+             alt="Imagen IA de la combinada #{{ Combinada.id }}">
+    {% endif %}
+
+    {# SUBIR IMAGEN: zona de arrastrar y soltar (o clic). enctype para mandar archivos #}
+    <form method="post" action="/Combinada/{{ Combinada.id }}/subir-imagen"
+          enctype="multipart/form-data" id="form-img-{{ Combinada.id }}">
+        <label for="file-{{ Combinada.id }}"
+               class="d-block border border-secondary rounded text-center p-2 mb-1"
+               style="cursor:pointer; font-size:0.8rem;"
+               ondragover="event.preventDefault(); this.classList.add('border-info');"
+               ondragleave="this.classList.remove('border-info');"
+               ondrop="soltarImagen(event, {{ Combinada.id }})">
+            📷 Arrastra una imagen aquí o haz clic
+        </label>
+        {# input oculto: al elegir/soltar un archivo, el form se envia solo #}
+        <input type="file" id="file-{{ Combinada.id }}" name="imagen" accept="image/*"
+               class="d-none" onchange="document.getElementById('form-img-{{ Combinada.id }}').submit()">
+    </form>
+
+    {# EDITAR: link (GET) que lleva al formulario de edicion ya lleno #}
+    <a href="/Combinada/{{ Combinada.id }}/editar" class="btn btn-warning btn-sm w-100 mb-1">Editar combinada</a>
+
     {# Eliminar la combinada COMPLETA (ella + sus piernas). confirm() pide confirmacion #}
     <form method="post" action="/Combinada/{{ Combinada.id }}/eliminar"
           onsubmit="return confirm('¿Eliminar esta combinada y todas sus piernas?');">

@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4" style="max-width: 500px;">
+    <h2 class="mb-4">Editar combinada #{{ combinada.id }}</h2>
+
+    {# Si el backend rechazo algo, mostramos el mensaje aqui #}
+    {% if error %}
+        <div class="alert alert-danger">⚠ {{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/Combinada/{{ combinada.id }}/editar">
+
+        {# El value usa 'valores' si hubo error; si no, el dato ACTUAL de la combinada #}
+        <div class="mb-3">
+            <label class="form-label">stake (unidades apostadas)</label>
+            <input type="number" class="form-control" name="stake"
+                   step="0.01" min="0.01"
+                   value="{{ valores.stake if valores else combinada.stake }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">cuota total <small class="text-secondary">(opcional)</small></label>
+            <input type="number" class="form-control" name="cuota_total"
+                   step="0.01" min="1"
+                   value="{{ valores.cuota_total if valores else (combinada.cuota_total if combinada.cuota_total is not none else '') }}">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">probabilidad de la combinada <small class="text-secondary">(0 a 1, opcional)</small></label>
+            <input type="number" class="form-control" name="prob_combinada"
+                   step="0.01" min="0" max="1"
+                   value="{{ valores.prob_combinada if valores else (combinada.prob_combinada if combinada.prob_combinada is not none else '') }}">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">estado</label>
+            {# 'selected' marca la opcion que ya tiene guardada la combinada #}
+            <select class="form-select" name="estado">
+                <option value="pendiente" {{ 'selected' if combinada.estado and combinada.estado.value == 'pendiente' else '' }}>pendiente</option>
+                <option value="acierto" {{ 'selected' if combinada.estado and combinada.estado.value == 'acierto' else '' }}>acierto</option>
+                <option value="fallo" {{ 'selected' if combinada.estado and combinada.estado.value == 'fallo' else '' }}>fallo</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">activo</label>
+            <select class="form-select" name="activo">
+                <option value="true" {{ 'selected' if combinada.activo else '' }}>Sí</option>
+                <option value="false" {{ 'selected' if not combinada.activo else '' }}>No</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-warning">Guardar cambios</button>
+        <a href="/combinadas/" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

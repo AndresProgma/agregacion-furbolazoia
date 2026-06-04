@@ -8,6 +8,7 @@ from Modelos import *
 from modelo_type import *
 from db import SessionDep, create_all_tables, get_session
 from operaciones_db import *
+from utils import subir_bytes_supabase
 
 app = FastAPI(lifespan=create_all_tables)
 
@@ -21,15 +22,19 @@ async def home(request: Request):
 
 ##--------------------------crear combinada -------------------
 @app.post("/Combinada", response_model=CombinadaID)
-async def crear_combinada_api(pokemon: CombinadaBase, session: SessionDep):
-    
-    return Crear_Combinada_bd(pokemon, session)
+async def crear_combinada_api(combinada: CombinadaBase, session: SessionDep):
+    creada = Crear_Combinada_bd(combinada, session)
+    if creada is None:                       # por si la BD no la pudo crear
+        raise HTTPException(status_code=400, detail="No se pudo crear la combinada")
+    return creada
 
 #---------------------borrar combinada-------------------------
 
 @app.delete("/pokemon/{id}", response_model=CombinadaBase)
 async def delete_one_combinada(id: int, session: SessionDep):
-    deleted = eliminar_combinada(id, session)
+    deleted = eliminar_combinada(id, session)#soft delete a combinada y a piernas
+
+
     if not (deleted):
         raise HTTPException(status_code=404, detail=f"{id} combinada not found")
     return deleted
@@ -97,14 +102,53 @@ async def Crear_Combinada_vista(request: Request):
 
 @app.post("/Combinada/Crear/", response_class=HTMLResponse)
 async def pokemon_catched(
-        stake: str = Form(),
-        cuota_total: Optional[float] = Form(None),
-        prob_combinada: Optional[float] = Form(None),
+        request: Request,
+        stake: str = Form(""),
+        cuota_total: Optional[str] = Form(None),
+        prob_combinada: Optional[str] = Form(None),
         estado: PiernaType = Form(None),
         activo: Optional[bool] = Form(None),
         session: Session = Depends(get_session)):
-    nueva_combinada = CombinadaBase(stake=stake, cuota_total=cuota_total, prob_combinada=prob_combinada, estado= estado,activo=activo)
+
+    # Re-muestra el MISMO formulario con un mensaje de error y lo que ya se escribio
+    def volver_con_error(msg):
+        return templates.TemplateResponse(request, "crear.html", {
+            "error": msg,
+            "valores": {"stake": stake, "cuota_total": cuota_total, "prob_combinada": prob_combinada},
+        })
+
+    # --- validacion manual con mensajes amables (segunda capa, por si saltan el front) ---
+    try:
+        stake_f = float(stake)
+    except ValueError:
+        return volver_con_error("El stake debe ser un número (ej. 1.5).")
+    if stake_f <= 0:
+        return volver_con_error("El stake debe ser mayor a 0.")
+
+    # cuota_total es opcional: si viene vacia la dejamos en None
+    cuota_f = None
+    if cuota_total:
+        try:
+            cuota_f = float(cuota_total)
+        except ValueError:
+            return volver_con_error("La cuota total debe ser un número.")
+        if cuota_f < 1:
+            return volver_con_error("La cuota total no puede ser menor a 1.")
+
+    # prob_combinada tambien es opcional, y va entre 0 y 1
+    prob_f = None
+    if prob_combinada:
+        try:
+            prob_f = float(prob_combinada)
+        except ValueError:
+            return volver_con_error("La probabilidad debe ser un número.")
+        if not (0 <= prob_f <= 1):
+            return volver_con_error("La probabilidad debe estar entre 0 y 1.")
+
+    nueva_combinada = CombinadaBase(stake=stake_f, cuota_total=cuota_f, prob_combinada=prob_f, estado=estado, activo=activo)
     catched = Crear_Combinada_bd(nueva_combinada, session)
+    if catched is None:                      # si no se pudo crear, avisamos en vez de seguir
+        return volver_con_error("No se pudo crear la combinada. Intenta de nuevo.")
 
     return RedirectResponse("/combinadas/", status_code=302)
 
@@ -113,31 +157,178 @@ async def pokemon_catched(
 async def crear_pierna_vista(request: Request, session: Session = Depends(get_session)):
     # Pasamos las combinadas para llenar el <select> del formulario
     combinadas = Mostrar_Combinadas_bd(session)
-    return templates.TemplateResponse(request, "crear_pierna.html", {"pierna_lista": combinadas})
+    return templates.TemplateResponse(request, "crear_pierna.html", {"combinadas_lista": combinadas})
 
 
 @app.post("/Pierna/Crear/", response_class=HTMLResponse)
 async def crear_pierna_post(
+        request: Request,
         combinada_id: Optional[str] = Form(None),   # vacio "" = pierna libre (sin combinada)
-        partido: str = Form(),
-        mercado: str = Form(),
-        cuota: float = Form(),
-        prob: float = Form(),
+        partido: str = Form(""),
+        mercado: str = Form(""),
+        cuota: str = Form(""),
+        prob: str = Form(""),
         resultado: Optional[PiernaType] = Form(None),
         activo: bool = Form(True),   # una pierna nueva queda activa por defecto
         session: Session = Depends(get_session)):
+#-----------------------------------------------------------------------------------------------------------------------------
+    # Re-muestra el MISMO formulario con un mensaje de error y lo que ya se escribio
+    # Cada vez que renderizas una plantilla, le tienes que dar TODOS los datos
+    def volver_con_error(msg):
+        combinadas = Mostrar_Combinadas_bd(session)   # el <select> necesita la lista otra vez
+        return templates.TemplateResponse(request, "crear_pierna.html", {
+            "combinadas_lista": combinadas,
+            "error": msg,
+            "valores": {"partido": partido, "mercado": mercado, "cuota": cuota, "prob": prob},
+        })
 
+    # ------------------------ validacion manual con mensajes amables (segunda capa, por si saltan el front) --------------------------
+    if not partido.strip():
+        return volver_con_error("El partido es obligatorio.")
+    if not mercado.strip():
+        return volver_con_error("El mercado es obligatorio.")
+    try:
+        cuota_f = float(cuota)
+    except ValueError:
+        return volver_con_error("La cuota debe ser un número (ej. 1.85).")
+    if cuota_f <= 1:
+        return volver_con_error("La cuota debe ser mayor a 1.")
+    try:
+        prob_f = float(prob)
+    except ValueError:
+        return volver_con_error("La probabilidad debe ser un número entre 0 y 1.")
+    if not (0 <= prob_f <= 1):
+        return volver_con_error("La probabilidad debe estar entre 0 y 1.")
+#------------------------------------------------------------------------------------------------------
     # Si el <select> mando "" (libre), guardamos None; si mando un id, lo pasamos a int
+    #combinada_id es "3" (string)
     cid = int(combinada_id) if combinada_id else None
 
     nueva_pierna = PiernaBase(
         combinada_id=cid, partido=partido, mercado=mercado,
-        cuota=cuota, prob=prob, resultado=resultado, activo=activo)
+        cuota=cuota_f, prob=prob_f, resultado=resultado, activo=activo)
 
     creada = Crear_Pierna_bd(nueva_pierna, session)
-    if creada is None:                       # la combinada no existía
-        raise HTTPException(status_code=404, detail="La combinada no existe")
+    if creada is None:                       # la combinada seleccionada no existía
+        return volver_con_error("La combinada seleccionada no existe.")
 
+    return RedirectResponse("/piernas/", status_code=302)
+
+
+# ===================== EDITAR COMBINADA =====================
+
+@app.get("/Combinada/{id}/editar", response_class=HTMLResponse)
+async def editar_combinada_vista(id: int, request: Request, session: Session = Depends(get_session)):
+    # Muestra el formulario YA LLENO con los datos actuales de la combinada
+    combinada = Mostrar_Combinada_bd(id, session)
+    if combinada is None:
+        raise HTTPException(status_code=404, detail="Combinada no existe")
+    return templates.TemplateResponse(request, "editar_combinada.html", {"combinada": combinada})
+
+
+@app.post("/Combinada/{id}/editar", response_class=HTMLResponse)
+async def editar_combinada_post(
+        id: int,
+        request: Request,
+        stake: str = Form(""),
+        cuota_total: Optional[str] = Form(None),
+        prob_combinada: Optional[str] = Form(None),
+        estado: CombinadaType = Form(None),
+        activo: bool = Form(False),
+        session: Session = Depends(get_session)):
+
+    combinada = Mostrar_Combinada_bd(id, session)
+    if combinada is None:
+        raise HTTPException(status_code=404, detail="Combinada no existe")
+
+    # Re-muestra el formulario de edicion con el error y lo que se escribio
+    def volver_con_error(msg):
+        return templates.TemplateResponse(request, "editar_combinada.html", {
+            "combinada": combinada, "error": msg,
+            "valores": {"stake": stake, "cuota_total": cuota_total, "prob_combinada": prob_combinada},
+        })
+
+    # --- misma validacion que al crear ---
+    try:
+        stake_f = float(stake)
+    except ValueError:
+        return volver_con_error("El stake debe ser un número (ej. 1.5).")
+    if stake_f <= 0:
+        return volver_con_error("El stake debe ser mayor a 0.")
+
+    cuota_f = None
+    if cuota_total:
+        try:
+            cuota_f = float(cuota_total)
+        except ValueError:
+            return volver_con_error("La cuota total debe ser un número.")
+        if cuota_f < 1:
+            return volver_con_error("La cuota total no puede ser menor a 1.")
+
+    prob_f = None
+    if prob_combinada:
+        try:
+            prob_f = float(prob_combinada)
+        except ValueError:
+            return volver_con_error("La probabilidad debe ser un número.")
+        if not (0 <= prob_f <= 1):
+            return volver_con_error("La probabilidad debe estar entre 0 y 1.")
+
+    Editar_Combinada_bd(id, stake_f, cuota_f, prob_f, estado, activo, session)
+    return RedirectResponse("/combinadas/", status_code=302)
+
+
+# ===================== EDITAR PIERNA =====================
+
+@app.get("/Pierna/{id}/editar", response_class=HTMLResponse)
+async def editar_pierna_vista(id: int, request: Request, session: Session = Depends(get_session)):
+    # Muestra el formulario YA LLENO con los datos actuales de la pierna
+    pierna = Mostrar_Pierna_bd(id, session)
+    if pierna is None:
+        raise HTTPException(status_code=404, detail="Pierna no existe")
+    return templates.TemplateResponse(request, "editar_pierna.html", {"pierna": pierna})
+
+
+@app.post("/Pierna/{id}/editar", response_class=HTMLResponse)
+async def editar_pierna_post(
+        id: int,
+        request: Request,
+        partido: str = Form(""),
+        mercado: str = Form(""),
+        cuota: str = Form(""),
+        prob: str = Form(""),
+        resultado: Optional[PiernaType] = Form(None),
+        session: Session = Depends(get_session)):
+
+    pierna = Mostrar_Pierna_bd(id, session)
+    if pierna is None:
+        raise HTTPException(status_code=404, detail="Pierna no existe")
+
+    def volver_con_error(msg):
+        return templates.TemplateResponse(request, "editar_pierna.html", {
+            "pierna": pierna, "error": msg,
+            "valores": {"partido": partido, "mercado": mercado, "cuota": cuota, "prob": prob},
+        })
+
+    # --- misma validacion que al crear ---
+    if not partido.strip():
+        return volver_con_error("El partido es obligatorio.")
+    if not mercado.strip():
+        return volver_con_error("El mercado es obligatorio.")
+    try:
+        cuota_f = float(cuota)
+    except ValueError:
+        return volver_con_error("La cuota debe ser un número (ej. 1.85).")
+    if cuota_f <= 1:
+        return volver_con_error("La cuota debe ser mayor a 1.")
+    try:
+        prob_f = float(prob)
+    except ValueError:
+        return volver_con_error("La probabilidad debe ser un número entre 0 y 1.")
+    if not (0 <= prob_f <= 1):
+        return volver_con_error("La probabilidad debe estar entre 0 y 1.")
+
+    Editar_Pierna_bd(id, partido, mercado, cuota_f, prob_f, resultado, session)
     return RedirectResponse("/piernas/", status_code=302)
 
 
@@ -153,7 +344,9 @@ async def combinada_completa_inicio(request: Request):
 async def combinada_completa_crear(session: Session = Depends(get_session)):
     # Crea la combinada VACIA y lleva al armador de esa combinada
     nueva = Crear_Combinada_vacia_bd(session)
-    return RedirectResponse(f"/Combinada/Completa/{nueva.id}", status_code=302)
+    if nueva is None:                        # si no se pudo crear la vacia, no podemos seguir al armador
+        raise HTTPException(status_code=400, detail="No se pudo crear la combinada")
+    return RedirectResponse(f"/Combinada/Completa/{nueva.id}", status_code=302)# se manda nueva id, porque hay valores sin nada pero id es autoincremental
 
 
 @app.get("/Combinada/Completa/{combinada_id}", response_class=HTMLResponse)
@@ -167,6 +360,8 @@ async def combinada_completa_builder(combinada_id: int, request: Request, sessio
         {"combinada": combinada, "asignadas": asignadas, "libres": libres})
 
 
+#hasta aca se podria decir que es todo lo base, de aca en adelante es la parte de la afiliacion de soltar
+
 @app.post("/api/combinada/{combinada_id}/agregar/{pierna_id}")
 async def api_agregar_pierna(combinada_id: int, pierna_id: int, session: Session = Depends(get_session)):
     # Lo llama el JavaScript al soltar una pierna. Asigna y devuelve los totales nuevos.
@@ -174,6 +369,32 @@ async def api_agregar_pierna(combinada_id: int, pierna_id: int, session: Session
     if combinada is None:
         raise HTTPException(status_code=404, detail="Pierna o combinada no existe")
     return {"cuota_total": combinada.cuota_total, "prob_combinada": combinada.prob_combinada}
+
+
+# ===================== MULTIMEDIA: subir imagen de la combinada =====================
+
+@app.post("/Combinada/{id}/subir-imagen", response_class=HTMLResponse)
+async def subir_imagen_combinada(id: int, imagen: UploadFile = File(...), session: Session = Depends(get_session)):
+    # 1. Buscamos la combinada
+    combinada = Mostrar_Combinada_bd(id, session)
+    if combinada is None:
+        raise HTTPException(status_code=404, detail="Combinada no existe")
+
+    # 2. Validamos que el archivo subido sea realmente una imagen
+    if not imagen.content_type or not imagen.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+
+    # 3. Leemos los bytes y los subimos a Supabase
+    contenido = await imagen.read()
+    extension = imagen.filename.rsplit(".", 1)[-1] if "." in imagen.filename else "png"
+    nombre = f"combinada_{id}.{extension}"
+    url_publica = subir_bytes_supabase(contenido, nombre, imagen.content_type)
+
+    # 4. Guardamos la URL en la combinada
+    combinada.imagen_url = url_publica
+    session.add(combinada)
+    session.commit()
+    return RedirectResponse("/combinadas/", status_code=302)
 
 
 @app.post("/Combinada/Completa/{combinada_id}/finalizar", response_class=HTMLResponse)

@@ -3,6 +3,11 @@
 <div class="container mt-4" style="max-width: 500px;">
     <h2 class="mb-4">Crear pierna</h2>
 
+    {# Si el backend rechazo algo, mostramos el mensaje aqui (retroalimentacion) #}
+    {% if error %}
+        <div class="alert alert-danger">⚠ {{ error }}</div>
+    {% endif %}
+
     <form method="post" action="/Pierna/Crear/">
 
         {# El <select> con las combinadas que existen. value = el id que viaja al servidor #}
@@ -19,19 +24,41 @@
 
         <div class="mb-3">
             <label class="form-label">Partido</label>
-            <input class="form-control" name="partido" placeholder="Brasil vs Camerún">
+            {# required = obligatorio; maxlength = tope de caracteres #}
+            <input type="text" class="form-control" name="partido"
+                   placeholder="Brasil vs Camerún" maxlength="80"
+                   value="{{ valores.partido if valores else '' }}" required>
         </div>
         <div class="mb-3">
             <label class="form-label">Mercado</label>
-            <input class="form-control" name="mercado" placeholder="1X2 Brasil">
+            {# placeholder=lo que dice en la casilla maxlength="60" maximo 60 caracteres #}
+            <input type="text" class="form-control" name="mercado"
+                   placeholder="1X2 Brasil" maxlength="60"
+                   value="{{ valores.mercado if valores else '' }}" required>
         </div>
         <div class="mb-3">
             <label class="form-label">Cuota</label>
-            <input class="form-control" name="cuota" placeholder="1.85">
+            {# una cuota siempre es mayor a 1 #}
+            {# placeholder=1.85, step= permite dos decimales erro 1.857, min=minimo  #}
+            <input type="number" class="form-control" name="cuota"
+                   placeholder="1.85" step="0.01" min="1.01"
+                   value="{{ valores.cuota if valores else '' }}" required>
         </div>
         <div class="mb-3">
             <label class="form-label">Probabilidad (0–1)</label>
-            <input class="form-control" name="prob" placeholder="0.62">
+            {# prob va entre 0 y 1 #}
+            <input type="number" class="form-control" name="prob"
+                   placeholder="0.62" step="0.01" min="0" max="1"
+                   value="{{ valores.prob if valores else '' }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Resultado</label>
+            <select class="form-select" name="resultado">
+                <option value="pendiente" selected>pendiente</option>
+                <option value="acierto">acierto</option>
+                <option value="fallo">fallo</option>
+            </select>
         </div>
 
         <button type="submit" class="btn btn-success">Crear pierna</button>

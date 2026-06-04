@@ -95,6 +95,47 @@ def eliminar_pierna(id: int, session: Session):
         return None
 
 
+# ---------- EDITAR (UPDATE del CRUD) ----------
+
+def Editar_Combinada_bd(id, stake, cuota_total, prob_combinada, estado, activo, session: Session):
+    """Actualiza los campos de una combinada. Devuelve None si no existe."""
+    try:
+        combinada = session.get_one(CombinadaID, id)
+    except NoResultFound:
+        return None
+    combinada.stake = stake
+    combinada.cuota_total = cuota_total
+    combinada.prob_combinada = prob_combinada
+    combinada.estado = estado
+    combinada.activo = activo
+    session.add(combinada)
+    session.commit()
+    session.refresh(combinada)
+    return combinada
+
+
+def Editar_Pierna_bd(id, partido, mercado, cuota, prob, resultado, session: Session):
+    """Actualiza los campos de una pierna. Devuelve None si no existe.
+    Si la pierna pertenece a una combinada, recalcula sus totales (cambio cuota/prob).
+    """
+    try:
+        pierna = session.get_one(PiernaID, id)
+    except NoResultFound:
+        return None
+    pierna.partido = partido
+    pierna.mercado = mercado
+    pierna.cuota = cuota
+    pierna.prob = prob
+    pierna.resultado = resultado
+    session.add(pierna)
+    session.commit()
+    session.refresh(pierna)
+    # Si esta dentro de una combinada, sus totales cambian -> recalcular
+    if pierna.combinada_id is not None:
+        Recalcular_Combinada_bd(pierna.combinada_id, session)
+    return pierna
+
+
 # ---------- COMBINADA COMPLETA (armar arrastrando piernas) ----------
 
 def Crear_Combinada_vacia_bd(session:Session):

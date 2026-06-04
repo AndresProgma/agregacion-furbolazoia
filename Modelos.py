@@ -13,6 +13,7 @@ class CombinadaBase(SQLModel):
       prob_combinada: float | None = Field(default=None,ge=0,le=1)  # Π de las probs del modelo ej 0.23
       estado: CombinadaType | None = Field(default=None)  # pendiente | ganada | perdida
       activo: bool = True
+      imagen_url: str | None = Field(default=None)  # URL publica de la imagen IA (en Supabase)
 
 class CombinadaID(CombinadaBase, table=True):
       id: int | None = Field(default=None, primary_key=True, gt=0)
