@@ -1,0 +1,3 @@
+# Paquete principal de la aplicación.
+# Convierte la carpeta 'app' en un paquete de Python para poder hacer
+# imports como  from app.models import ...  o  from app.routers import ...

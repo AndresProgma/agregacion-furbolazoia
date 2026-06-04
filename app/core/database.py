@@ -15,7 +15,11 @@ neon_url_db = os.getenv("url_basededatos")
 # pool_recycle: recicla conexiones que lleven mas de 5 min (300 s) para que no se queden viejas.
 engine = create_engine(neon_url_db, pool_pre_ping=True, pool_recycle=300)
 
+
 def create_all_tables(app: FastAPI):
+    # Importamos los modelos para que SQLModel los "vea" y cree sus tablas.
+    # (el import vive aqui dentro para evitar imports circulares al arrancar)
+    from app.models import CombinadaID, PiernaID  # noqa: F401
     SQLModel.metadata.create_all(engine)
     yield
 
@@ -23,5 +27,6 @@ def create_all_tables(app: FastAPI):
 def get_session():
     with Session(engine) as session:
         yield session
+
 
 SessionDep = Annotated[Session, Depends(get_session)]

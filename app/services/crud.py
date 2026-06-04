@@ -1,8 +1,12 @@
 from sqlmodel import Session, select
-from Modelos import *
 from sqlalchemy.exc import NoResultFound
 
-def Crear_Combinada_bd(personaje: CombinadaBase,session: Session ):
+from app.models import *
+
+
+# ===================== CREAR / LEER COMBINADAS =====================
+
+def Crear_Combinada_bd(personaje: CombinadaBase, session: Session):
     new = CombinadaID.model_validate(personaje)
     session.add(new)
     session.commit()
@@ -10,17 +14,21 @@ def Crear_Combinada_bd(personaje: CombinadaBase,session: Session ):
     return new
 
 
-def Mostrar_Combinada_bd(id:int,session:Session):
+def Mostrar_Combinada_bd(id: int, session: Session):
     try:
-        return session.get_one(CombinadaID,id)
+        return session.get_one(CombinadaID, id)
     except NoResultFound:
         return None
 
-def Mostrar_Combinadas_bd(session:Session):
+
+def Mostrar_Combinadas_bd(session: Session):
     # activo == True para que las combinadas "eliminadas" (soft delete) no aparezcan
     return session.exec(select(CombinadaID).where(CombinadaID.activo == True))
 
-def Crear_Pierna_bd(pierna:PiernaBase,session:Session):
+
+# ===================== CREAR / LEER PIERNAS =====================
+
+def Crear_Pierna_bd(pierna: PiernaBase, session: Session):
     # Si la pierna trae combinada, verificamos que esa combinada exista.
     # Si combinada_id es None, es una pierna "libre" (va al pool) -> no validamos nada.
     if pierna.combinada_id is not None:
@@ -35,28 +43,29 @@ def Crear_Pierna_bd(pierna:PiernaBase,session:Session):
     return new
 
 
-
-def Mostrar_Pierna_bd(id:int,session:Session):
+def Mostrar_Pierna_bd(id: int, session: Session):
     try:
-        return session.get_one(PiernaID,id)
+        return session.get_one(PiernaID, id)
     except NoResultFound:
         return None
 
-def Mostrar_Piernas_bd(session:Session):
+
+def Mostrar_Piernas_bd(session: Session):
     # activo == True para que las piernas "eliminadas" (soft delete) no aparezcan
     return session.exec(select(PiernaID).where(PiernaID.activo == True))
 
 
+# ===================== BUSCAR POR ID =====================
 
-#-------------buscar por id-------------------
 async def encontrar_combinada_id(id: int, session: Session):
     try:
         return session.get_one(CombinadaID, id)
     except NoResultFound:
         return None
-    
 
-    
+
+# ===================== ELIMINAR (soft delete) =====================
+
 def eliminar_combinada(id: int, session: Session):
     """Soft delete de la combinada Y de todas sus piernas (la 'elimina completa').
     Marca activo=False en vez de borrar; nada se pierde de la base.
@@ -95,7 +104,7 @@ def eliminar_pierna(id: int, session: Session):
         return None
 
 
-# ---------- EDITAR (UPDATE del CRUD) ----------
+# ===================== EDITAR (UPDATE del CRUD) =====================
 
 def Editar_Combinada_bd(id, stake, cuota_total, prob_combinada, estado, activo, session: Session):
     """Actualiza los campos de una combinada. Devuelve None si no existe."""
@@ -150,9 +159,9 @@ def Editar_Pierna_bd(id, partido, mercado, cuota, prob, resultado, combinada_id,
     return pierna
 
 
-# ---------- COMBINADA COMPLETA (armar arrastrando piernas) ----------
+# ===================== COMBINADA COMPLETA (armar arrastrando piernas) =====================
 
-def Crear_Combinada_vacia_bd(session:Session):
+def Crear_Combinada_vacia_bd(session: Session):
     """Crea una combinada SIN datos: estado pendiente, activa, sin cuota/prob todavia."""
     nueva = CombinadaID(estado=CombinadaType.PENDIENTE, activo=True)
     session.add(nueva)
@@ -160,20 +169,23 @@ def Crear_Combinada_vacia_bd(session:Session):
     session.refresh(nueva)
     return nueva
 
-def Piernas_libres_bd(session:Session):
+
+def Piernas_libres_bd(session: Session):
     """Piernas ACTIVAS que todavia NO pertenecen a ninguna combinada (el 'pool' de la derecha)."""
     # activo == True para que las "eliminadas" (soft delete) no aparezcan en el pool
     return session.exec(
         select(PiernaID).where(PiernaID.combinada_id == None, PiernaID.activo == True)
     ).all()
 
-def Piernas_de_combinada_bd(combinada_id:int, session:Session):
+
+def Piernas_de_combinada_bd(combinada_id: int, session: Session):
     """Piernas ACTIVAS que YA pertenecen a esta combinada (las inactivas no cuentan ni se muestran)."""
     return session.exec(
         select(PiernaID).where(PiernaID.combinada_id == combinada_id, PiernaID.activo == True)
     ).all()
 
-def Recalcular_Combinada_bd(combinada_id:int, session:Session):
+
+def Recalcular_Combinada_bd(combinada_id: int, session: Session):
     """Recalcula cuota_total (Π cuotas) y prob_combinada (Π probs) de la combinada.
 
     'Π' (pi) significa MULTIPLICAR todas. Ej: cuotas 1.85, 2.0 -> 1.85*2.0 = 3.70
@@ -203,7 +215,8 @@ def Recalcular_Combinada_bd(combinada_id:int, session:Session):
     session.refresh(combinada)  # traemos la version actualizada
     return combinada
 
-def Asignar_Pierna_bd(pierna_id:int, combinada_id:int, session:Session):
+
+def Asignar_Pierna_bd(pierna_id: int, combinada_id: int, session: Session):
     """Mete una pierna libre dentro de una combinada y recalcula los totales.
 
     Es lo que pasa "por detras" cada vez que sueltas una pierna en el armador.
@@ -221,5 +234,3 @@ def Asignar_Pierna_bd(pierna_id:int, combinada_id:int, session:Session):
 
     # Como ya hay una pierna mas, recalculamos cuota_total y prob_combinada.
     return Recalcular_Combinada_bd(combinada_id, session)
-
-
