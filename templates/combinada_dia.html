@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% block content %}
+{#
+  combinada_dia.html  ->  "Combinada del día"
+  - Arriba (lado a lado): la GRAFICA de RIESGO vs RECOMPENSA  y  una TABLA.
+        * La grafica arranca VACIA.
+        * La tabla muestra, para la combinada que sueltes, como BAJA la probabilidad
+          combinada al ir multiplicando la prob de cada pierna (1 pierna, 2, 3...).
+  - Abajo: todas las combinadas (combinada_carta.html), cada una ARRASTRABLE.
+  - Al soltar una carta sobre la grafica aparece un punto:
+        eje X = probabilidad de ganar (%)   ->  qué tan probable es que salga
+        eje Y = cuota total (lo que paga)    ->  cuánto recompensa
+#}
+
+{# Chart.js: la libreria que dibuja la grafica (se baja del CDN) #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<div class="container mt-4">
+    <h2 class="mb-1">Combinada del día</h2>
+    <p class="text-secondary mb-3">
+        Arrastra una combinada de abajo hacia la gráfica para ver su
+        <strong>riesgo (probabilidad)</strong> contra su <strong>recompensa (cuota)</strong>.
+        La tabla de la derecha muestra cómo baja la probabilidad al sumar piernas.
+    </p>
+
+    <div class="row g-3">
+        {# ===== IZQUIERDA: LA GRAFICA (zona de soltar). Arranca vacia ===== #}
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Riesgo vs Recompensa</span>
+                    <button id="btn_limpiar" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+                </div>
+                {# este DIV es la ZONA DE SOLTAR: borde punteado para que se note #}
+                <div id="zona_grafica" class="card-body border border-success border-2 rounded m-2"
+                     style="min-height:380px;">
+                    <canvas id="grafica_riesgo" height="130"></canvas>
+                    <p id="grafica_vacia_msg" class="text-secondary text-center mt-3 mb-0">
+                        La gráfica está vacía. Arrastra combinadas aquí 👇
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        {# ===== DERECHA: LA TABLA (se llena con la combinada que sueltes) ===== #}
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">Desglose por piernas</div>
+                <div class="card-body" id="tabla_combinada">
+                    <p class="text-secondary mb-0">Arrastra una combinada a la gráfica para ver el desglose.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# leyenda de colores (semaforo de riesgo) #}
+    <p class="small text-secondary mt-2 mb-4">
+        <span style="color:#22c55e;">●</span> Segura (prob ≥ 60%) &nbsp;
+        <span style="color:#eab308;">●</span> Media (30–60%) &nbsp;
+        <span style="color:#ef4444;">●</span> Arriesgada (&lt; 30%)
+    </p>
+
+    <hr>
+    <h5 class="mb-3">Combinadas (arrástralas a la gráfica)</h5>
+
+    {# ===== LAS CARTAS, cada una envuelta en un div ARRASTRABLE ===== #}
+    <div class="row g-3">
+        {% for item in datos %}
+            {% set Combinada = item.combinada %}   {# combinada_carta.html usa la variable 'Combinada' #}
+            <div class="col-md-4 combinada-drag" draggable="true"
+                 data-id="{{ Combinada.id }}"
+                 data-prob="{{ Combinada.prob_combinada if Combinada.prob_combinada is not none else '' }}"
+                 data-cuota="{{ Combinada.cuota_total if Combinada.cuota_total is not none else '' }}"
+                 data-piernas='{{ item.piernas_info | tojson }}'
+                 ondragstart="alArrastrarCombinada(event)"
+                 style="cursor:grab;">
+                {% include 'combinada_carta.html' %}
+            </div>
+        {% else %}
+            <p class="text-secondary">No hay combinadas todavía.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    // ---- 1) ARRASTRAR una combinada: guardamos sus datos en el "portapapeles" del arrastre ----
+    function alArrastrarCombinada(event) {
+        const el = event.currentTarget;
+        // metemos todo en un solo texto (JSON) porque es lo mas compatible entre navegadores
+        const datos = JSON.stringify({
+            id: el.dataset.id,
+            prob: el.dataset.prob,        // 0–1, o "" si la combinada no tiene probabilidad
+            cuota: el.dataset.cuota,      // >=1, o "" si no tiene cuota
+            piernas: el.dataset.piernas   // JSON con [{partido, prob}, ...]
+        });
+        event.dataTransfer.setData("text/plain", datos);
+    }
+
+    // segun la probabilidad elegimos color (semaforo de riesgo)
+    function colorPorRiesgo(prob01) {
+        if (prob01 >= 0.6) return "#22c55e";   // verde = segura
+        if (prob01 >= 0.3) return "#eab308";   // amarillo = media
+        return "#ef4444";                      // rojo = arriesgada
+    }
+
+    // ---- 2) Creamos la grafica VACIA (un scatter: puntos sueltos) ----
+    const chart = new Chart(document.getElementById("grafica_riesgo"), {
+        type: "scatter",
+        data: {
+            datasets: [{
+                label: "Combinadas",
+                data: [],                 // arranca sin puntos
+                backgroundColor: [],      // un color por punto (semaforo de riesgo)
+                pointRadius: 9,
+                pointHoverRadius: 12
+            }]
+        },
+        options: {
+            scales: {
+                x: { title: { display: true, text: "Probabilidad de ganar (%)" }, min: 0, max: 100 },
+                y: { title: { display: true, text: "Cuota total (lo que paga)" }, beginAtZero: false }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        // texto que sale al pasar el mouse sobre un punto
+                        label: (c) => `${c.raw.label} · prob ${c.raw.x.toFixed(1)}% · cuota ${c.raw.y.toFixed(2)}`
+                    }
+                }
+            }
+        }
+    });
+
+    // ---- 3) LA TABLA: arma el desglose pierna por pierna de una combinada ----
+    // piernas = [{partido, prob}, ...].  Multiplica las probs una a una y muestra
+    // como cae la probabilidad combinada (igual que el ejemplo del 0.89).
+    function renderTabla(id, piernas, probTotal) {
+        const cont = document.getElementById("tabla_combinada");
+
+        // combinada SIN piernas (prob puesta a mano): mostramos solo el total
+        if (!piernas || piernas.length === 0) {
+            const pct = probTotal === "" ? "—" : (parseFloat(probTotal) * 100).toFixed(1) + "%";
+            cont.innerHTML = `<h6 class="mb-2">Combinada #${id}</h6>
+                <p class="text-secondary mb-0">No tiene piernas. Prob. combinada: <strong>${pct}</strong></p>`;
+            return;
+        }
+
+        let prod = 1;
+        const factores = [];
+        let filas = "";
+        let yaAviso = false;
+        piernas.forEach((p, i) => {
+            prod *= p.prob;                       // acumulamos el producto
+            factores.push(p.prob.toFixed(2));     // "0.90", "0.85", ...
+            const pct = (prod * 100).toFixed(1);
+            const color = colorPorRiesgo(prod);
+
+            // aviso la primera vez que baja del 50% ("moneda al aire")
+            let nota = "";
+            if (!yaAviso && prod < 0.5) { nota = ' <span class="text-danger small">← menos que una moneda al aire</span>'; yaAviso = true; }
+
+            filas += `<tr>
+                <td>${i + 1}</td>
+                <td class="small text-secondary">${factores.join(" × ")}</td>
+                <td style="color:${color}; font-weight:600;">${pct}%${nota}</td>
+            </tr>`;
+        });
+
+        cont.innerHTML = `
+            <h6 class="mb-2">Combinada #${id}</h6>
+            <table class="table table-sm table-dark table-bordered mb-0 align-middle">
+                <thead><tr><th>Nº piernas</th><th>Cálculo</th><th>Prob. combinada</th></tr></thead>
+                <tbody>${filas}</tbody>
+            </table>`;
+    }
+
+    // para no agregar dos veces la misma combinada (el punto)
+    const yaAgregadas = new Set();
+
+    // ---- 4) SOLTAR sobre la grafica: agregamos el punto y armamos la tabla ----
+    const zona = document.getElementById("zona_grafica");
+    zona.addEventListener("dragover", (e) => e.preventDefault());  // permitir soltar
+    zona.addEventListener("drop", (e) => {
+        e.preventDefault();
+        let datos;
+        try { datos = JSON.parse(e.dataTransfer.getData("text/plain")); }
+        catch (_) { return; }   // soltaron algo que no es una combinada
+
+        // las piernas vienen como texto JSON: las convertimos a lista
+        let piernas = [];
+        try { piernas = JSON.parse(datos.piernas); } catch (_) { piernas = []; }
+
+        // la tabla SIEMPRE se actualiza con la ultima combinada soltada
+        renderTabla(datos.id, piernas, datos.prob);
+
+        // para el PUNTO de la grafica si necesitamos prob Y cuota
+        if (datos.prob === "" || datos.cuota === "") {
+            alert("La combinada #" + datos.id + " no tiene probabilidad o cuota todavía, así que no se puede ubicar en la gráfica (sí ves su tabla a la derecha).");
+            return;
+        }
+        if (yaAgregadas.has(datos.id)) return;   // ya estaba en la grafica
+        yaAgregadas.add(datos.id);
+
+        const prob = parseFloat(datos.prob);     // 0–1
+        const cuota = parseFloat(datos.cuota);   // >=1
+
+        // agregamos el punto: X = prob en %, Y = cuota
+        chart.data.datasets[0].data.push({ x: prob * 100, y: cuota, label: "Combinada #" + datos.id });
+        chart.data.datasets[0].backgroundColor.push(colorPorRiesgo(prob));
+        chart.update();
+
+        document.getElementById("grafica_vacia_msg").classList.add("d-none");
+    });
+
+    // ---- 5) Boton "Limpiar": vacia la grafica y la tabla ----
+    document.getElementById("btn_limpiar").addEventListener("click", () => {
+        chart.data.datasets[0].data = [];
+        chart.data.datasets[0].backgroundColor = [];
+        chart.update();
+        yaAgregadas.clear();
+        document.getElementById("grafica_vacia_msg").classList.remove("d-none");
+        document.getElementById("tabla_combinada").innerHTML =
+            '<p class="text-secondary mb-0">Arrastra una combinada a la gráfica para ver el desglose.</p>';
+    });
+
+    // ---- soltar IMAGENES en las cartas sigue funcionando (lo usa combinada_carta.html) ----
+    function soltarImagen(e, id) {
+        e.preventDefault();
+        const input = document.getElementById('file-' + id);
+        input.files = e.dataTransfer.files;
+        document.getElementById('form-img-' + id).submit();
+    }
+</script>
+{% endblock %}

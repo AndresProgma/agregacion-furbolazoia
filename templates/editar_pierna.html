@@ -10,6 +10,20 @@
 
     <form method="post" action="/Pierna/{{ pierna.id }}/editar">
 
+        {# A CUAL COMBINADA pertenece. 'selected' marca la combinada actual de la pierna.
+           Si hubo error usamos 'valores.combinada_id'; si no, la combinada guardada. #}
+        <div class="mb-3">
+            <label class="form-label">Combinada (a cuál pertenece)</label>
+            {% set cid_actual = valores.combinada_id if valores else pierna.combinada_id %}
+            <select class="form-select" name="combinada_id">
+                {# value vacio = pierna libre, va al pool de "Combinada completa" #}
+                <option value="" {{ 'selected' if not cid_actual else '' }}>— Sin combinada (libre, para arrastrar) —</option>
+                {% for c in combinadas_lista %}
+                    <option value="{{ c.id }}" {{ 'selected' if cid_actual and (cid_actual|string == c.id|string) else '' }}>Combinada #{{ c.id }} (stake {{ c.stake }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
         {# El value usa 'valores' si hubo error; si no, el dato ACTUAL de la pierna #}
         <div class="mb-3">
             <label class="form-label">Partido</label>

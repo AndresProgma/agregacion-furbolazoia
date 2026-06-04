@@ -286,7 +286,10 @@ async def editar_pierna_vista(id: int, request: Request, session: Session = Depe
     pierna = Mostrar_Pierna_bd(id, session)
     if pierna is None:
         raise HTTPException(status_code=404, detail="Pierna no existe")
-    return templates.TemplateResponse(request, "editar_pierna.html", {"pierna": pierna})
+    # Pasamos las combinadas para llenar el <select> de "a cuál pertenece"
+    combinadas = Mostrar_Combinadas_bd(session)
+    return templates.TemplateResponse(request, "editar_pierna.html",
+        {"pierna": pierna, "combinadas_lista": combinadas})
 
 
 @app.post("/Pierna/{id}/editar", response_class=HTMLResponse)
@@ -298,6 +301,7 @@ async def editar_pierna_post(
         cuota: str = Form(""),
         prob: str = Form(""),
         resultado: Optional[PiernaType] = Form(None),
+        combinada_id: Optional[str] = Form(None),   # vacio "" = pierna libre (sin combinada)
         session: Session = Depends(get_session)):
 
     pierna = Mostrar_Pierna_bd(id, session)
@@ -305,9 +309,11 @@ async def editar_pierna_post(
         raise HTTPException(status_code=404, detail="Pierna no existe")
 
     def volver_con_error(msg):
+        combinadas = Mostrar_Combinadas_bd(session)   # el <select> necesita la lista otra vez
         return templates.TemplateResponse(request, "editar_pierna.html", {
-            "pierna": pierna, "error": msg,
-            "valores": {"partido": partido, "mercado": mercado, "cuota": cuota, "prob": prob},
+            "pierna": pierna, "combinadas_lista": combinadas, "error": msg,
+            "valores": {"partido": partido, "mercado": mercado, "cuota": cuota,
+                        "prob": prob, "combinada_id": combinada_id},
         })
 
     # --- misma validacion que al crear ---
@@ -328,8 +334,32 @@ async def editar_pierna_post(
     if not (0 <= prob_f <= 1):
         return volver_con_error("La probabilidad debe estar entre 0 y 1.")
 
-    Editar_Pierna_bd(id, partido, mercado, cuota_f, prob_f, resultado, session)
+    # El <select> manda "" (libre) -> None; o un id -> int. Si manda un id, debe existir
+    cid = int(combinada_id) if combinada_id else None
+    if cid is not None and Mostrar_Combinada_bd(cid, session) is None:
+        return volver_con_error("La combinada seleccionada no existe.")
+
+    Editar_Pierna_bd(id, partido, mercado, cuota_f, prob_f, resultado, cid, session)
     return RedirectResponse("/piernas/", status_code=302)
+
+
+# ===================== COMBINADA DEL DIA (grafica riesgo vs recompensa) =====================
+
+@app.get("/Combinada/Dia/", response_class=HTMLResponse)
+async def combinada_del_dia(request: Request, session: Session = Depends(get_session)):
+    # Trae TODAS las combinadas activas. La grafica arranca vacia: el usuario
+    # arrastra las cartas de abajo hacia la grafica para ir colocando puntos
+    # (eje X = probabilidad de ganar, eje Y = cuota total = lo que paga).
+    # Por cada combinada mandamos tambien la prob de cada una de sus piernas:
+    # la tabla de al lado las multiplica una por una para mostrar como BAJA la
+    # probabilidad combinada a medida que se suman piernas.
+    combinadas = Mostrar_Combinadas_bd(session)
+    datos = []
+    for c in combinadas:
+        piernas = Piernas_de_combinada_bd(c.id, session)
+        piernas_info = [{"partido": p.partido, "prob": p.prob} for p in piernas]
+        datos.append({"combinada": c, "piernas_info": piernas_info})
+    return templates.TemplateResponse(request, "combinada_dia.html", {"datos": datos})
 
 
 # ===================== COMBINADA COMPLETA (armar arrastrando) =====================

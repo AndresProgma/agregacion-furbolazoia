@@ -114,25 +114,39 @@ def Editar_Combinada_bd(id, stake, cuota_total, prob_combinada, estado, activo, 
     return combinada
 
 
-def Editar_Pierna_bd(id, partido, mercado, cuota, prob, resultado, session: Session):
-    """Actualiza los campos de una pierna. Devuelve None si no existe.
-    Si la pierna pertenece a una combinada, recalcula sus totales (cambio cuota/prob).
+def Editar_Pierna_bd(id, partido, mercado, cuota, prob, resultado, combinada_id, session: Session):
+    """Actualiza los campos de una pierna, INCLUIDA la combinada a la que pertenece.
+    Devuelve None si la pierna no existe.
+
+    'combinada_id' nuevo puede ser:
+      - un id  -> la pierna pasa a esa combinada
+      - None    -> la pierna queda "libre" (vuelve al pool)
+
+    Como la pierna puede MOVERSE de una combinada a otra, recalculamos los totales
+    de AMBAS: la combinada de la que sale (ya no la cuenta) y a la que entra.
     """
     try:
         pierna = session.get_one(PiernaID, id)
     except NoResultFound:
         return None
+
+    combinada_vieja = pierna.combinada_id   # de donde venia (puede ser None)
+
     pierna.partido = partido
     pierna.mercado = mercado
     pierna.cuota = cuota
     pierna.prob = prob
     pierna.resultado = resultado
+    pierna.combinada_id = combinada_id      # la mudamos (o la dejamos libre con None)
     session.add(pierna)
     session.commit()
     session.refresh(pierna)
-    # Si esta dentro de una combinada, sus totales cambian -> recalcular
-    if pierna.combinada_id is not None:
-        Recalcular_Combinada_bd(pierna.combinada_id, session)
+
+    # Recalculamos las combinadas afectadas (sin repetir si es la misma)
+    afectadas = {combinada_vieja, combinada_id}   # un set evita recalcular dos veces
+    for cid in afectadas:
+        if cid is not None:
+            Recalcular_Combinada_bd(cid, session)
     return pierna
 
 
