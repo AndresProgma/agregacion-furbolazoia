@@ -65,14 +65,101 @@ web_futbol/
 Una **Combinada** agrupa muchas **Piernas**; cada Pierna pertenece a lo sumo a una Combinada.
 La llave foránea `combinada_id` es **anulable** (para las piernas libres).
 
-![Diagrama Entidad-Relación]
+
+![Diagrama ENDPOINTS]
 ```mermaid
-graph TD
-    A[Web Futbol] -->|Lee cuotas| B[(Supabase Bucket)]
-    A -->|Consulta| C{Chatbot / Groq}
-    B --> D[Usuario Final]
-    C --> D
+erDiagram
+  combinadaid |o--o{ piernaid : "agrupa"
+  combinadaid {
+    int id PK
+    float stake "unidades apostadas"
+    float cuota_total "producto cuotas, ge 1"
+    float prob_combinada "producto probs (0-1)"
+    enum estado "pendiente/acierto/fallo"
+    bool activo "soft delete"
+    string imagen_url "URL pública Supabase"
+  }
+  piernaid {
+    int id PK
+    int combinada_id FK "anulable (pierna libre)"
+    string partido
+    string mercado
+    float cuota
+    float prob "0 a 1"
+    enum resultado "pendiente/acierto/fallo"
+    bool activo "soft delete"
+  }
+
 ```
+
+
+
+
+
+
+
+![Diagrama ENDPOINTS]
+```mermaid
+flowchart LR
+  subgraph APP["main.py — FastAPI app"]
+    direction TB
+    R["GET /  · home (base.html)"]:::get
+    DOCS["GET /docs · Swagger automático"]:::get
+  end
+
+  subgraph COMB["Router: combinadas.py"]
+    direction TB
+    subgraph COMB_API["API (JSON)"]
+      direction TB
+      CA1["POST /Combinada · crear (JSON)"]:::post
+      CA2["DELETE /Combinada/{id} · soft delete + cascada"]:::del
+      CA3["POST /api/combinada/{cid}/agregar/{pid} · lo llama el JS"]:::post
+    end
+    subgraph COMB_CRUD["CRUD + multimedia (HTML)"]
+      direction TB
+      CC1["GET /combinadas/ ?id= · listar / buscar"]:::get
+      CC2["GET /Combinada/Crear/ · formulario"]:::get
+      CC3["POST /Combinada/Crear/ · valida + crea"]:::post
+      CC4["GET /Combinada/{id}/editar · formulario lleno"]:::get
+      CC5["POST /Combinada/{id}/editar · valida + actualiza"]:::post
+      CC6["POST /Combinada/{id}/eliminar · soft delete (form)"]:::post
+      CC7["POST /Combinada/{id}/subir-imagen · Supabase"]:::post
+    end
+    subgraph COMB_FULL["Armador 'Completa'"]
+      direction TB
+      CF1["GET /Combinada/Completa/ · pantalla inicio"]:::get
+      CF2["POST /Combinada/Completa/ · crea combinada vacía"]:::post
+      CF3["GET /Combinada/Completa/{cid} · armador"]:::get
+      CF4["POST /Combinada/Completa/{cid}/finalizar · guarda stake"]:::post
+    end
+  end
+
+  subgraph PIER["Router: piernas.py"]
+    direction TB
+    P1["GET /piernas/ ?id= · listar / buscar"]:::get
+    P2["GET /Pierna/Crear/ · formulario + recomendadas"]:::get
+    P3["POST /Pierna/Crear/ · valida + crea"]:::post
+    P4["GET /Pierna/{id}/editar · formulario lleno"]:::get
+    P5["POST /Pierna/{id}/editar · valida + actualiza"]:::post
+    P6["POST /Pierna/{id}/eliminar · soft delete + recalcula"]:::post
+  end
+
+  subgraph DASH["Router: dashboard.py"]
+    direction TB
+    D1["GET /Combinada/Dia/ · editor + gráfica Chart.js"]:::get
+    D2["POST /Combinada/Dia/{id}/guardar · agrega/quita + recalcula"]:::post
+  end
+
+  classDef get fill:#E6F1FB,stroke:#185FA5,color:#042C53;
+  classDef post fill:#E1F5EE,stroke:#0F6E56,color:#04342C;
+  classDef del fill:#FCEBEB,stroke:#A32D2D,color:#501313;
+```
+
+
+
+
+
+
 | Modelo | Campos principales |
 |---|---|
 | `CombinadaID` | id, stake, cuota_total, prob_combinada, estado, activo, imagen_url |
@@ -136,32 +223,143 @@ classDiagram
 ```
 
 ```mermaid
-graph TD
-    A[Web Futbol] -->|Lee cuotas| B[(Supabase Bucket)]
-    A -->|Consulta| C{Chatbot / Groq}
-    B --> D[Usuario Final]
-    C --> D
+classDiagram
+  direction LR
+  class CrudService {
+    <<crud.py>>
+    +Crear_Combinada_bd(data, session)
+    +Mostrar_Combinada_bd(id, session)
+    +Mostrar_Combinadas_bd(session)
+    +Editar_Combinada_bd(id, campos, session)
+    +eliminar_combinada(id, session)
+    +Crear_Combinada_vacia_bd(session)
+    +Crear_Pierna_bd(pierna, session)
+    +Mostrar_Pierna_bd(id, session)
+    +Mostrar_Piernas_bd(session)
+    +Editar_Pierna_bd(id, campos, session)
+    +eliminar_pierna(id, session)
+    +Piernas_libres_bd(session)
+    +Piernas_de_combinada_bd(cid, session)
+    +Asignar_Pierna_bd(pid, cid, session)
+    +Recalcular_Combinada_bd(cid, session)
+    +encontrar_combinada_id(id, session) async
+  }
+  class StorageService {
+    <<storage.py>>
+    +subir_bytes_supabase(bytes, nombre, content_type) str
+  }
+  class FutbolazaApiClient {
+    <<futbolaza_api.py>>
+    +recomendadas() list~dict~
+    -_valores_de_partido(p) list~dict~
+  }
+  class CombinadaID {
+    <<modelo / tabla>>
+  }
+  class PiernaID {
+    <<modelo / tabla>>
+  }
+  CrudService ..> CombinadaID : persiste
+  CrudService ..> PiernaID : persiste
+  StorageService ..> CombinadaID : imagen_url
+  FutbolazaApiClient ..> PiernaID : autocompleta
 ```
 **Diagrama de despliegue** (navegador → FastAPI/Render → Neon, + Supabase + futbolaza):
 
 ![Diagrama de despliegue]
 ```mermaid
-graph TD
-    A[Web Futbol] -->|Lee cuotas| B[(Supabase Bucket)]
-    A -->|Consulta| C{Chatbot / Groq}
-    B --> D[Usuario Final]
-    C --> D
+flowchart TB
+  subgraph CLI["Dispositivo del usuario"]
+    NAV["Navegador<br/>HTML + Bootstrap 5 + Chart.js"]
+  end
+
+  subgraph RENDER["Render — Web Service"]
+    APP["FastAPI + Uvicorn<br/>uvicorn main:app --host 0.0.0.0 --port $PORT<br/>routers + services + Jinja2"]
+  end
+
+  subgraph NEON["Neon — PostgreSQL (remota)"]
+    DB[("Base de datos<br/>combinadaid · piernaid")]
+  end
+
+  subgraph SUPA["Supabase Storage"]
+    BUCKET["Bucket público<br/>imágenes de combinadas"]
+  end
+
+  subgraph FUT["futbolaza — servicio aparte (Render)"]
+    FAPI["API REST · modelo ML<br/>/api/partidos-hoy · /api/featured-pick"]
+  end
+
+  NAV <-->|"HTTPS · HTML, formularios, fetch de la gráfica"| APP
+  APP <-->|"PostgreSQL + SSL · SQLModel/SQLAlchemy<br/>pool_pre_ping, pool_recycle=300"| DB
+  APP -->|"REST POST · sube bytes con service_role"| BUCKET
+  NAV -.->|"GET imagen vía URL pública"| BUCKET
+  APP -->|"REST GET · apuestas recomendadas (timeout 25s)"| FAPI
 ```
 
 **Diagrama de actividades** (flujo principal del dashboard "Combinada del día"):
 
 ![Diagrama de actividades]
 ```mermaid
-graph TD
-    A[Web Futbol] -->|Lee cuotas| B[(Supabase Bucket)]
-    A -->|Consulta| C{Chatbot / Groq}
-    B --> D[Usuario Final]
-    C --> D
+flowchart TD
+  A(["Inicio"]) --> B["Usuario abre GET /Pierna/Crear/"]
+  B --> C["Sistema carga combinadas para el select"]
+  C --> D["Llama recomendadas() de futbolaza"]
+  D --> E{"¿futbolaza responde?"}
+  E -->|"no"| F["Lista vacía: la pierna se llena a mano"]
+  E -->|"sí"| G["Muestra apuestas recomendadas"]
+  F --> H["Usuario llena el formulario"]
+  G --> I{"¿Elige una recomendación?"}
+  I -->|"sí"| J["Autocompleta partido, mercado y prob"]
+  I -->|"no"| H
+  J --> H
+  H --> K["Validación front: required, number, min/max"]
+  K --> L["POST /Pierna/Crear/"]
+  L --> M{"¿partido y mercado no vacíos?"}
+  M -->|"no"| N["Re-render del form con error y valores precargados"]
+  M -->|"sí"| O{"¿cuota numérica y > 1?"}
+  O -->|"no"| N
+  O -->|"sí"| P{"¿prob numérica y entre 0 y 1?"}
+  P -->|"no"| N
+  P -->|"sí"| Q{"¿combinada_id vacío?"}
+  Q -->|"sí (libre)"| R["cid = None: la pierna va al pool"]
+  Q -->|"no"| S["cid = int(combinada_id)"]
+  R --> T["Crear_Pierna_bd(pierna, session)"]
+  S --> T
+  T --> U{"¿combinada asignada existe o es libre?"}
+  U -->|"no existe"| N
+  U -->|"sí / libre"| V["model_validate + add + commit + refresh"]
+  V --> W["RedirectResponse 302 a /piernas/"]
+  N --> H
+  W --> X(["Fin"])
+```
+```mermaid
+flowchart TD
+  A(["Inicio"]) --> B["GET /Combinada/Dia/"]
+  B --> C["Carga combinadas con sus piernas y el pool de libres"]
+  C --> D["Usuario arrastra una combinada a la zona de edición"]
+  D --> E["Muestra tabla de piernas, pool y gráfica Chart.js"]
+  E --> F["Usuario agrega o quita piernas"]
+  F --> G["La gráfica recalcula prob vs pago en vivo"]
+  G --> H{"¿Seguir editando?"}
+  H -->|"sí"| F
+  H -->|"no"| I{"¿Guardar o descartar?"}
+  I -->|"descartar"| J["Revierte al estado original"]
+  J --> Z(["Fin"])
+  I -->|"guardar"| K["POST /Combinada/Dia/{id}/guardar con pierna_ids"]
+  K --> L{"¿Combinada existe y está activa?"}
+  L -->|"no"| M["HTTP 404"]
+  M --> Z
+  L -->|"sí"| N["Calcula ids deseados vs actuales"]
+  N --> O["QUITAR: las que sobran quedan libres (combinada_id = None)"]
+  O --> P["AGREGAR: solo piernas activas y libres pasan a esta combinada"]
+  P --> Q["session.commit()"]
+  Q --> R["Recalcular_Combinada_bd(id, session)"]
+  R --> S{"¿Quedan piernas activas?"}
+  S -->|"no"| T["cuota_total = None y prob_combinada = None"]
+  S -->|"sí"| U["cuota_total = Π cuotas, prob_combinada = Π probs"]
+  T --> V["RedirectResponse 302 a /Combinada/Dia/"]
+  U --> V
+  V --> Z
 ```
 
 ## ⚙️ Funcionalidades
