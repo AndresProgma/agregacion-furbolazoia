@@ -65,8 +65,14 @@ web_futbol/
 Una **Combinada** agrupa muchas **Piernas**; cada Pierna pertenece a lo sumo a una Combinada.
 La llave foránea `combinada_id` es **anulable** (para las piernas libres).
 
-![Diagrama Entidad-Relación](docs/img/er.png)
-
+![Diagrama Entidad-Relación]
+```mermaid
+graph TD
+    A[Web Futbol] -->|Lee cuotas| B[(Supabase Bucket)]
+    A -->|Consulta| C{Chatbot / Groq}
+    B --> D[Usuario Final]
+    C --> D
+```
 | Modelo | Campos principales |
 |---|---|
 | `CombinadaID` | id, stake, cuota_total, prob_combinada, estado, activo, imagen_url |
@@ -76,15 +82,87 @@ La llave foránea `combinada_id` es **anulable** (para las piernas libres).
 
 **Diagrama de clases** (modelos, enums y capa de servicios CRUD):
 
-![Diagrama de clases](docs/img/clases.png)
+![Diagrama de clases]
+```mermaid
+classDiagram
+  direction TB
+  class SQLModel {
+    <<base · SQLModel/Pydantic>>
+  }
+  class CombinadaBase {
+    +float stake
+    +Optional~float~ cuota_total
+    +Optional~float~ prob_combinada
+    +Optional~CombinadaType~ estado
+    +bool activo
+    +Optional~str~ imagen_url
+  }
+  class CombinadaID {
+    <<tabla combinadaid>>
+    +Optional~int~ id
+  }
+  class PiernaBase {
+    +Optional~int~ combinada_id
+    +str partido
+    +str mercado
+    +float cuota
+    +float prob
+    +Optional~PiernaType~ resultado
+    +bool activo
+  }
+  class PiernaID {
+    <<tabla piernaid>>
+    +Optional~int~ id
+  }
+  class CombinadaType {
+    <<enumeration>>
+    PENDIENTE
+    ACIERTO
+    FALLO
+  }
+  class PiernaType {
+    <<enumeration>>
+    PENDIENTE
+    ACIERTO
+    FALLO
+  }
+  SQLModel <|-- CombinadaBase
+  CombinadaBase <|-- CombinadaID
+  SQLModel <|-- PiernaBase
+  PiernaBase <|-- PiernaID
+  CombinadaBase ..> CombinadaType : estado
+  PiernaBase ..> PiernaType : resultado
+  CombinadaID "0..1" o-- "0..*" PiernaID : combinada_id (FK)
+```
 
+```mermaid
+graph TD
+    A[Web Futbol] -->|Lee cuotas| B[(Supabase Bucket)]
+    A -->|Consulta| C{Chatbot / Groq}
+    B --> D[Usuario Final]
+    C --> D
+```
 **Diagrama de despliegue** (navegador → FastAPI/Render → Neon, + Supabase + futbolaza):
 
-![Diagrama de despliegue](docs/img/despliegue.png)
+![Diagrama de despliegue]
+```mermaid
+graph TD
+    A[Web Futbol] -->|Lee cuotas| B[(Supabase Bucket)]
+    A -->|Consulta| C{Chatbot / Groq}
+    B --> D[Usuario Final]
+    C --> D
+```
 
 **Diagrama de actividades** (flujo principal del dashboard "Combinada del día"):
 
-![Diagrama de actividades](docs/img/actividades.png)
+![Diagrama de actividades]
+```mermaid
+graph TD
+    A[Web Futbol] -->|Lee cuotas| B[(Supabase Bucket)]
+    A -->|Consulta| C{Chatbot / Groq}
+    B --> D[Usuario Final]
+    C --> D
+```
 
 ## ⚙️ Funcionalidades
 
