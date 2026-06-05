@@ -298,7 +298,7 @@ flowchart TB
 
 **Diagrama de actividades** (flujo principal del dashboard "Combinada del día"):
 
-![Diagrama de actividades]
+![Diagrama de actividades]Diagrama 1 — Crear una pierna (con recomendadas de futbolaza, doble validación y decisión libre/asignada):
 ```mermaid
 flowchart TD
   A(["Inicio"]) --> B["Usuario abre GET /Pierna/Crear/"]
@@ -332,6 +332,7 @@ flowchart TD
   N --> H
   W --> X(["Fin"])
 ```
+Combinada del día (armador en vivo, guardar/descartar y recálculo como producto):
 ```mermaid
 flowchart TD
   A(["Inicio"]) --> B["GET /Combinada/Dia/"]
